@@ -18,9 +18,20 @@ window.addEventListener('resize', resizeCanvas);
 let isMobile = false;
 
 // ===== SPIEL-ZUSTÄNDE =====
-let gameState = 'MENU'; // 'MENU' | 'PLAYING' | 'PAUSED' | 'GAMEOVER'
+let gameState = 'MAIN_MENU'; // 'MAIN_MENU' | 'OPTIONS' | 'CHAR_SELECT' | 'WEAPON_SELECT' | 'PLAYING' | 'PAUSED' | 'LEVEL_UP' | 'GAMEOVER'
 
-// ===== KLASSEN-DEFINITIONEN =====
+// ===== CHARACTER-DEFINITIONEN =====
+const CHARACTERS = {
+    WEAPON_SPECIALIST: {
+        id: 1,
+        name: 'Waffenspezialist',
+        description: 'Experte für alle Waffen',
+        color: '#ffaa00'
+    }
+    // Weitere Charaktere können hier hinzugefügt werden
+};
+
+// ===== KLASSEN-DEFINITIONEN (Waffen) =====
 const CLASSES = {
     SNIPER: {
         id: 1,
@@ -52,7 +63,7 @@ const CLASSES = {
         id: 3,
         name: 'Schrotflinte',
         description: 'Flächenschaden',
-        detail: '4 Kugeln pro Schuss, kurze Reichweite',
+        detail: 'Multishot, kurze Reichweite',
         fireRate: 600,
         bulletSpeed: 10,
         bulletSize: 3,
@@ -67,6 +78,7 @@ const CLASSES = {
 };
 
 let selectedClass = null;
+let selectedCharacter = null;
 
 // ===== SPIELER =====
 const player = {
@@ -77,7 +89,17 @@ const player = {
     color: '#40e0d0',
     health: 100,
     maxHealth: 100,
-    angle: 0
+    angle: 0,
+    // XP & Level
+    level: 1,
+    xp: 0,
+    xpToNext: 50,
+    // Upgrade-Modifikatoren
+    damageMultiplier: 1.0,
+    speedMultiplier: 1.0,
+    fireRateMultiplier: 1.0,
+    bulletSpeedMultiplier: 1.0,
+    lifesteal: 0 // 0 = kein Lebensraub, 0.005 = 0.5%
 };
 
 // ===== TASTATUR-STATUS =====
@@ -90,11 +112,21 @@ const keys = {
 let bullets = [];
 let enemies = [];
 let particles = [];
+let xpCrystals = [];
 
 // ===== MAUS =====
 let mouseX = CANVAS_WIDTH / 2;
 let mouseY = CANVAS_HEIGHT / 2;
 let mouseDown = false;
+
+// ===== HOVER-STATUS =====
+let hoveredButton = null; // 'start', 'options', 'character', 'weapon'
+let hoveredCharIndex = -1;
+let hoveredWeaponIndex = -1;
+
+// ===== CHARAKTER-BILD =====
+const charImage_waffenspezialist = new Image();
+charImage_waffenspezialist.src = 'assets/waffenspezialist.png';
 
 // ===== SPIEL-VARIABLEN =====
 let score = 0;
@@ -107,33 +139,37 @@ let gridOffsetY = 0;
 let lastShotTime = 0;
 let menuParticles = [];
 
+// ===== TIMER =====
+let gameTime = 0; // in Sekunden
+let lastTimerUpdate = 0;
+
+// ===== LEVEL-UP =====
+let levelUpOptions = [];
+let levelUpSelected = false;
+
 // ===== TOUCH-STEUERUNG =====
 let touchJoystickActive = false;
 let touchJoystickX = 0;
 let touchJoystickY = 0;
 let touchJoystickId = -1;
-let touchJoystickLastAngle = 0; // friert Blickrichtung bei Loslassen ein
+let touchJoystickLastAngle = 0;
 let touchFireActive = false;
 let touchFireId = -1;
 let touchFireAngle = 0;
 
-// Joystick-Position (unten links)
 const joystickCenterX = () => 140;
 const joystickCenterY = () => CANVAS_HEIGHT - 140;
 const joystickRadius = 70;
 const joystickKnobRadius = 25;
 
-// Feuer-Button (unten rechts)
 const fireBtnCenterX = () => CANVAS_WIDTH - 120;
 const fireBtnCenterY = () => CANVAS_HEIGHT - 120;
 const fireBtnRadius = 55;
 
-// Menü-Pause-Button (oben rechts)
 const menuBtnX = () => CANVAS_WIDTH - 60;
 const menuBtnY = () => 50;
 const menuBtnRadius = 28;
 
-// Pause-Menü-Buttons
 const pauseContinueBtn = {
     x: () => CANVAS_WIDTH / 2,
     y: () => CANVAS_HEIGHT / 2 + 10,
@@ -146,6 +182,23 @@ const pauseMenuBtn = {
     w: 220,
     h: 50
 };
+
+// ===== MAIN MENÜ PARTIKEL =====
+let mainMenuParticles = [];
+function initMainMenuParticles() {
+    mainMenuParticles = [];
+    for (let i = 0; i < 50; i++) {
+        mainMenuParticles.push({
+            x: Math.random() * CANVAS_WIDTH,
+            y: Math.random() * CANVAS_HEIGHT,
+            vx: (Math.random() - 0.5) * 0.8,
+            vy: (Math.random() - 0.5) * 0.8,
+            size: Math.random() * 4 + 2,
+            alpha: Math.random() * 0.4 + 0.1,
+            color: `hsl(${Math.random() * 60 + 180}, 100%, 60%)`
+        });
+    }
+}
 
 // ===== MENÜ-PARTIKEL =====
 function initMenuParticles() {
@@ -163,6 +216,7 @@ function initMenuParticles() {
     }
 }
 initMenuParticles();
+initMainMenuParticles();
 
 // ===== MENÜ-KLICK-ERKENNUNG =====
 function getClassAtPosition(tx, ty) {
@@ -183,18 +237,168 @@ function getClassAtPosition(tx, ty) {
     return null;
 }
 
-// Prüft ob ein Punkt innerhalb des Menü-Buttons (oben rechts) liegt
 function isInsideMenuBtn(tx, ty) {
     const dx = tx - menuBtnX();
     const dy = ty - menuBtnY();
     return Math.sqrt(dx*dx + dy*dy) < menuBtnRadius;
 }
 
-// Prüft ob ein Punkt innerhalb eines Pause-Menü-Buttons liegt
 function isInsidePauseBtn(tx, ty, btn) {
     const bx = btn.x();
     const by = btn.y();
     return tx >= bx - btn.w/2 && tx <= bx + btn.w/2 && ty >= by - btn.h/2 && ty <= by + btn.h/2;
+}
+
+function isInsideStartBtn(tx, ty) {
+    const btnX = CANVAS_WIDTH / 2;
+    const btnY = CANVAS_HEIGHT / 2 + 30;
+    const btnWidth = 240;
+    const btnHeight = 60;
+    return tx >= btnX - btnWidth/2 && tx <= btnX + btnWidth/2 && 
+           ty >= btnY - btnHeight/2 && ty <= btnY + btnHeight/2;
+}
+
+function isInsideOptionsBtn(tx, ty) {
+    const btnX = CANVAS_WIDTH / 2;
+    const btnY = CANVAS_HEIGHT / 2 + 110;
+    const btnWidth = 240;
+    const btnHeight = 60;
+    return tx >= btnX - btnWidth/2 && tx <= btnX + btnWidth/2 && 
+           ty >= btnY - btnHeight/2 && ty <= btnY + btnHeight/2;
+}
+
+function isInsideCharacterCard(tx, ty, charIndex) {
+    const cardWidth = Math.min(280, CANVAS_WIDTH * 0.35);
+    const cardHeight = Math.min(380, CANVAS_HEIGHT * 0.5);
+    const gap = Math.min(40, (CANVAS_WIDTH - 3 * cardWidth) / 4);
+    const totalWidth = 3 * cardWidth + 2 * gap;
+    const startX = (CANVAS_WIDTH - totalWidth) / 2;
+    const cardY = CANVAS_HEIGHT * 0.3;
+    
+    const cx = startX + charIndex * (cardWidth + gap);
+    return tx >= cx && tx <= cx + cardWidth && ty >= cardY && ty <= cardY + cardHeight;
+}
+
+// ===== SPIEL STARTEN / CHARAKTER / WAFFE WÄHLEN =====
+function goToCharSelect() {
+    gameState = 'CHAR_SELECT';
+    selectedCharacter = null;
+}
+
+function selectCharacter(charIndex) {
+    if (charIndex === 0) {
+        selectedCharacter = CHARACTERS.WEAPON_SPECIALIST;
+        gameState = 'WEAPON_SELECT';
+    }
+}
+
+function selectWeapon(weaponClass) {
+    selectedClass = weaponClass;
+    startGame(weaponClass);
+}
+
+function goBackToMenu() {
+    gameState = 'MAIN_MENU';
+    resetGameState();
+    selectedClass = null;
+    selectedCharacter = null;
+    initMainMenuParticles();
+}
+
+// ===== RARITÄTEN =====
+const RARITIES = [
+    { name: 'Gewöhnlich', color: '#cccccc', weight: 50, multiplier: 1.0 },
+    { name: 'Ungewöhnlich', color: '#00cc44', weight: 25, multiplier: 1.5 },
+    { name: 'Selten', color: '#4488ff', weight: 15, multiplier: 2.0 },
+    { name: 'Rar', color: '#aa44ff', weight: 8, multiplier: 3.0 },
+    { name: 'Legendär', color: '#ff8800', weight: 2, multiplier: 5.0 }
+];
+
+function rollRarity() {
+    const totalWeight = RARITIES.reduce((sum, r) => sum + r.weight, 0);
+    let roll = Math.random() * totalWeight;
+    for (const r of RARITIES) {
+        roll -= r.weight;
+        if (roll <= 0) return r;
+    }
+    return RARITIES[0];
+}
+
+// ===== LEVEL-UP OPTIONEN =====
+function generateLevelUpOptions() {
+    const allUpgrades = [
+        {
+            baseName: '+10% Schaden',
+            baseValue: 0.1,
+            apply: (mult) => { player.damageMultiplier += 0.1 * mult; }
+        },
+        {
+            baseName: '+15% Lauftempo',
+            baseValue: 0.15,
+            apply: (mult) => { player.speedMultiplier += 0.15 * mult; }
+        },
+        {
+            baseName: '+20% Schussrate',
+            baseValue: 0.8,
+            apply: (mult) => { player.fireRateMultiplier *= Math.pow(0.8, mult); }
+        },
+        {
+            baseName: '+20% Max-Leben',
+            baseValue: 20,
+            apply: (mult) => { const heal = Math.round(20 * mult); player.maxHealth += heal; player.health = Math.min(player.health + heal, player.maxHealth); }
+        },
+        {
+            baseName: '+0.5% Lebensraub',
+            baseValue: 0.005,
+            apply: (mult) => { player.lifesteal += 0.005 * mult; }
+        },
+        {
+            baseName: '+15% Projektil-Geschw.',
+            baseValue: 0.15,
+            apply: (mult) => { player.bulletSpeedMultiplier += 0.15 * mult; }
+        }
+    ];
+
+    // 3 zufällige auswählen
+    const shuffled = [...allUpgrades].sort(() => Math.random() - 0.5);
+    const selected = shuffled.slice(0, 3);
+
+    levelUpOptions = selected.map(upg => {
+        const rarity = rollRarity();
+        const mult = rarity.multiplier;
+        let displayValue;
+        if (upg.baseName.includes('Schussrate')) {
+            displayValue = Math.round((1 - Math.pow(0.8, mult)) * 100);
+        } else if (upg.baseName.includes('Lebensraub')) {
+            displayValue = Math.round(upg.baseValue * mult * 100);
+        } else if (upg.baseName.includes('Max-Leben')) {
+            displayValue = Math.round(upg.baseValue * mult);
+        } else if (upg.baseName.includes('Projektil')) {
+            displayValue = Math.round(upg.baseValue * mult * 100);
+        } else if (upg.baseName.includes('Lauftempo')) {
+            displayValue = Math.round(upg.baseValue * mult * 100);
+        } else {
+            displayValue = Math.round(upg.baseValue * mult * 100);
+        }
+
+        let suffix = '%';
+        if (upg.baseName.includes('Max-Leben')) suffix = '';
+
+        return {
+            displayName: upg.baseName.replace(/\d+%/, displayValue + suffix).replace(/\d+/, displayValue),
+            rarity: rarity,
+            apply: () => upg.apply(mult)
+        };
+    });
+}
+
+function applyLevelUp(index) {
+    if (index < 0 || index >= levelUpOptions.length) return;
+    levelUpOptions[index].apply();
+    player.level++;
+    player.xp = 0;
+    player.xpToNext = Math.floor(50 * Math.pow(1.25, player.level - 1));
+    gameState = 'PLAYING';
 }
 
 // ===== TOUCH-EVENTS =====
@@ -202,7 +406,56 @@ function handleTouchStart(e) {
     e.preventDefault();
     isMobile = true;
 
-    if (gameState === 'MENU') {
+    if (gameState === 'MAIN_MENU') {
+        for (let i = 0; i < e.changedTouches.length; i++) {
+            const touch = e.changedTouches[i];
+            if (isInsideStartBtn(touch.clientX, touch.clientY)) {
+                goToCharSelect();
+                return;
+            }
+            if (isInsideOptionsBtn(touch.clientX, touch.clientY)) {
+                return;
+            }
+        }
+        return;
+    }
+
+    if (gameState === 'CHAR_SELECT') {
+        for (let i = 0; i < e.changedTouches.length; i++) {
+            const touch = e.changedTouches[i];
+            if (isInsideCharacterCard(touch.clientX, touch.clientY, 0)) {
+                selectCharacter(0);
+                return;
+            }
+        }
+        return;
+    }
+
+    if (gameState === 'WEAPON_SELECT') {
+        for (let i = 0; i < e.changedTouches.length; i++) {
+            const touch = e.changedTouches[i];
+            const tx = touch.clientX;
+            const ty = touch.clientY;
+            const classes = [CLASSES.SNIPER, CLASSES.MACHINEGUN, CLASSES.SHOTGUN];
+            const cardWidth = Math.min(220, (CANVAS_WIDTH - 80) / 3);
+            const cardHeight = Math.min(260, CANVAS_HEIGHT * 0.45);
+            const gap = Math.min(30, (CANVAS_WIDTH - 3 * cardWidth) / 4);
+            const totalWidth = classes.length * cardWidth + (classes.length - 1) * gap;
+            const startX = (CANVAS_WIDTH - totalWidth) / 2;
+            const cardY = Math.min(210, CANVAS_HEIGHT * 0.35);
+
+            for (let j = 0; j < classes.length; j++) {
+                const cx = startX + j * (cardWidth + gap);
+                if (tx >= cx && tx <= cx + cardWidth && ty >= cardY && ty <= cardY + cardHeight) {
+                    selectWeapon(classes[j]);
+                    return;
+                }
+            }
+        }
+        return;
+    }
+
+    if (gameState === 'MENU' || gameState === 'WEAPON_SELECT') {
         for (let i = 0; i < e.changedTouches.length; i++) {
             const touch = e.changedTouches[i];
             const klasse = getClassAtPosition(touch.clientX, touch.clientY);
@@ -214,7 +467,29 @@ function handleTouchStart(e) {
         return;
     }
 
-    // PAUSED: Prüfe Buttons
+    if (gameState === 'LEVEL_UP') {
+        for (let i = 0; i < e.changedTouches.length; i++) {
+            const touch = e.changedTouches[i];
+            const tx = touch.clientX;
+            const ty = touch.clientY;
+            const cardW = Math.min(220, (CANVAS_WIDTH - 80) / 3);
+            const cardH = Math.min(200, CANVAS_HEIGHT * 0.35);
+            const gap = Math.min(30, (CANVAS_WIDTH - 3 * cardW) / 4);
+            const totalW = 3 * cardW + 2 * gap;
+            const startX = (CANVAS_WIDTH - totalW) / 2;
+            const cardY = CANVAS_HEIGHT / 2 - cardH / 2 + 30;
+
+            for (let j = 0; j < 3; j++) {
+                const cx = startX + j * (cardW + gap);
+                if (tx >= cx && tx <= cx + cardW && ty >= cardY && ty <= cardY + cardH) {
+                    applyLevelUp(j);
+                    return;
+                }
+            }
+        }
+        return;
+    }
+
     if (gameState === 'PAUSED') {
         for (let i = 0; i < e.changedTouches.length; i++) {
             const touch = e.changedTouches[i];
@@ -225,9 +500,9 @@ function handleTouchStart(e) {
                 return;
             }
             if (isInsidePauseBtn(tx, ty, pauseMenuBtn)) {
-                gameState = 'MENU';
+                gameState = 'MAIN_MENU';
                 resetGameState();
-                initMenuParticles();
+                initMainMenuParticles();
                 return;
             }
         }
@@ -239,13 +514,11 @@ function handleTouchStart(e) {
         const tx = touch.clientX;
         const ty = touch.clientY;
 
-        // Prüfen ob Menü-Button (oben rechts) getroffen
         if (isInsideMenuBtn(tx, ty)) {
             gameState = 'PAUSED';
             continue;
         }
 
-        // Prüfen ob Feuer-Button getroffen
         const fdx = tx - fireBtnCenterX();
         const fdy = ty - fireBtnCenterY();
         if (Math.sqrt(fdx*fdx + fdy*fdy) < fireBtnRadius) {
@@ -256,7 +529,6 @@ function handleTouchStart(e) {
             continue;
         }
 
-        // Prüfen ob Joystick-Bereich getroffen (linke untere Hälfte)
         if (tx < CANVAS_WIDTH / 2 && ty > CANVAS_HEIGHT / 2) {
             touchJoystickActive = true;
             touchJoystickId = touch.identifier;
@@ -289,7 +561,6 @@ function handleTouchEnd(e) {
         const touch = e.changedTouches[i];
 
         if (touch.identifier === touchJoystickId) {
-            // Blickrichtung einfrieren beim Loslassen
             touchJoystickLastAngle = player.angle;
             touchJoystickActive = false;
             touchJoystickId = -1;
@@ -319,16 +590,14 @@ function updateJoystickPosition(tx, ty) {
     }
 }
 
-// Touch-Shoot-Funktion für Dauerfeuer per Touch
 function touchShoot() {
     if (gameState !== 'PLAYING' || !selectedClass) return;
     if (!touchFireActive) return;
 
     const now = Date.now();
-    if (now - lastShotTime < selectedClass.fireRate) return;
+    if (now - lastShotTime < selectedClass.fireRate * player.fireRateMultiplier) return;
     lastShotTime = now;
 
-    // In Blickrichtung schießen
     const angle = player.angle;
     const dx = Math.cos(angle);
     const dy = Math.sin(angle);
@@ -337,7 +606,6 @@ function touchShoot() {
     fireBullet(dx, dy);
 }
 
-// Touch-Dauerfeuer-Intervall
 setInterval(() => {
     if (isMobile && touchFireActive && gameState === 'PLAYING') {
         touchShoot();
@@ -348,41 +616,38 @@ setInterval(() => {
 window.addEventListener('keydown', (e) => {
     const key = e.key.toLowerCase();
 
-    // MENÜ: Klassenauswahl
-    if (gameState === 'MENU') {
-        if (key === '1') { startGame(CLASSES.SNIPER); return; }
-        if (key === '2') { startGame(CLASSES.MACHINEGUN); return; }
-        if (key === '3') { startGame(CLASSES.SHOTGUN); return; }
+    if (gameState === 'MAIN_MENU') {
+        if (key === 'enter' || key === ' ') { goToCharSelect(); return; }
     }
 
-    // GAMEOVER: zurück zum Menü
+    if (gameState === 'CHAR_SELECT') {
+        if (key === 'escape') { goBackToMenu(); return; }
+    }
+
+    if (gameState === 'WEAPON_SELECT') {
+        if (key === 'escape') { gameState = 'CHAR_SELECT'; return; }
+    }
+
+    if (gameState === 'OPTIONS') {
+        if (key === 'escape') { gameState = 'MAIN_MENU'; return; }
+    }
+
     if (key === 'r' && gameState === 'GAMEOVER') {
-        gameState = 'MENU';
-        initMenuParticles();
+        gameState = 'MAIN_MENU';
+        initMainMenuParticles();
         return;
     }
 
-    // PAUSED: ESC oder M
     if (gameState === 'PAUSED') {
-        if (key === 'escape') {
-            gameState = 'PLAYING';
-            return;
-        }
-        if (key === 'm') {
-            gameState = 'MENU';
-            resetGameState();
-            initMenuParticles();
-            return;
-        }
+        if (key === 'escape') { gameState = 'PLAYING'; return; }
+        if (key === 'm') { gameState = 'MAIN_MENU'; resetGameState(); initMainMenuParticles(); return; }
     }
 
-    // PLAYING: Escape zum Pausieren
     if (key === 'escape' && gameState === 'PLAYING') {
         gameState = 'PAUSED';
         return;
     }
 
-    // Spieler-Steuerung
     if (key === 'w' || key === 'a' || key === 's' || key === 'd' ||
         key === 'arrowup' || key === 'arrowdown' || key === 'arrowleft' || key === 'arrowright') {
         e.preventDefault();
@@ -419,6 +684,43 @@ canvas.addEventListener('mousemove', (e) => {
     const rect = canvas.getBoundingClientRect();
     mouseX = e.clientX - rect.left;
     mouseY = e.clientY - rect.top;
+    
+    // Hover-Status aktualisieren
+    if (isMobile) return;
+    
+    if (gameState === 'MAIN_MENU') {
+        hoveredButton = isInsideStartBtn(mouseX, mouseY) ? 'start' : 
+                       isInsideOptionsBtn(mouseX, mouseY) ? 'options' : null;
+    } else if (gameState === 'CHAR_SELECT') {
+        hoveredCharIndex = -1;
+        for (let i = 0; i < 3; i++) {
+            if (isInsideCharacterCard(mouseX, mouseY, i)) {
+                hoveredCharIndex = i;
+                break;
+            }
+        }
+    } else if (gameState === 'WEAPON_SELECT') {
+        hoveredWeaponIndex = -1;
+        const classes = [CLASSES.SNIPER, CLASSES.MACHINEGUN, CLASSES.SHOTGUN];
+        const cardWidth = Math.min(220, (CANVAS_WIDTH - 80) / 3);
+        const cardHeight = Math.min(260, CANVAS_HEIGHT * 0.45);
+        const gap = Math.min(30, (CANVAS_WIDTH - 3 * cardWidth) / 4);
+        const totalWidth = classes.length * cardWidth + (classes.length - 1) * gap;
+        const startX = (CANVAS_WIDTH - totalWidth) / 2;
+        const cardY = Math.min(210, CANVAS_HEIGHT * 0.35);
+        
+        for (let i = 0; i < classes.length; i++) {
+            const cx = startX + i * (cardWidth + gap);
+            if (mouseX >= cx && mouseX <= cx + cardWidth && mouseY >= cardY && mouseY <= cardY + cardHeight) {
+                hoveredWeaponIndex = i;
+                break;
+            }
+        }
+    } else {
+        hoveredButton = null;
+        hoveredCharIndex = -1;
+        hoveredWeaponIndex = -1;
+    }
 });
 
 canvas.addEventListener('mousedown', (e) => {
@@ -434,42 +736,82 @@ canvas.addEventListener('click', (e) => {
     const clickX = e.clientX - rect.left;
     const clickY = e.clientY - rect.top;
 
-    // MENÜ: Klassenauswahl per Klick
+    if (gameState === 'MAIN_MENU') {
+        if (isInsideStartBtn(clickX, clickY)) {
+            goToCharSelect();
+            return;
+        }
+        if (isInsideOptionsBtn(clickX, clickY)) {
+            gameState = 'OPTIONS';
+            return;
+        }
+        return;
+    }
+
+    if (gameState === 'CHAR_SELECT') {
+        if (isInsideCharacterCard(clickX, clickY, 0)) {
+            selectCharacter(0);
+        }
+        return;
+    }
+
+    if (gameState === 'WEAPON_SELECT') {
+        const classes = [CLASSES.SNIPER, CLASSES.MACHINEGUN, CLASSES.SHOTGUN];
+        const cardWidth = Math.min(220, (CANVAS_WIDTH - 80) / 3);
+        const cardHeight = Math.min(260, CANVAS_HEIGHT * 0.45);
+        const gap = Math.min(30, (CANVAS_WIDTH - 3 * cardWidth) / 4);
+        const totalWidth = classes.length * cardWidth + (classes.length - 1) * gap;
+        const startX = (CANVAS_WIDTH - totalWidth) / 2;
+        const cardY = Math.min(210, CANVAS_HEIGHT * 0.35);
+
+        for (let i = 0; i < classes.length; i++) {
+            const cx = startX + i * (cardWidth + gap);
+            if (clickX >= cx && clickX <= cx + cardWidth && clickY >= cardY && clickY <= cardY + cardHeight) {
+                selectWeapon(classes[i]);
+                return;
+            }
+        }
+        return;
+    }
+
     if (gameState === 'MENU') {
         const klasse = getClassAtPosition(clickX, clickY);
-        if (klasse) {
-            startGame(klasse);
+        if (klasse) startGame(klasse);
+        return;
+    }
+
+    if (gameState === 'LEVEL_UP') {
+        const cardW = Math.min(220, (CANVAS_WIDTH - 80) / 3);
+        const cardH = Math.min(200, CANVAS_HEIGHT * 0.35);
+        const gap = Math.min(30, (CANVAS_WIDTH - 3 * cardW) / 4);
+        const totalW = 3 * cardW + 2 * gap;
+        const startX = (CANVAS_WIDTH - totalW) / 2;
+        const cardY = CANVAS_HEIGHT / 2 - cardH / 2 + 30;
+
+        for (let j = 0; j < 3; j++) {
+            const cx = startX + j * (cardW + gap);
+            if (clickX >= cx && clickX <= cx + cardW && clickY >= cardY && clickY <= cardY + cardH) {
+                applyLevelUp(j);
+                return;
+            }
         }
         return;
     }
 
-    // PAUSED: Buttons per Klick
     if (gameState === 'PAUSED') {
-        if (isInsidePauseBtn(clickX, clickY, pauseContinueBtn)) {
-            gameState = 'PLAYING';
-            return;
-        }
-        if (isInsidePauseBtn(clickX, clickY, pauseMenuBtn)) {
-            gameState = 'MENU';
-            resetGameState();
-            initMenuParticles();
-            return;
-        }
+        if (isInsidePauseBtn(clickX, clickY, pauseContinueBtn)) { gameState = 'PLAYING'; return; }
+        if (isInsidePauseBtn(clickX, clickY, pauseMenuBtn)) { gameState = 'MAIN_MENU'; resetGameState(); initMainMenuParticles(); return; }
         return;
     }
 
-    // PLAYING: Menü-Button oben rechts
     if (gameState === 'PLAYING') {
-        if (isInsideMenuBtn(clickX, clickY)) {
-            gameState = 'PAUSED';
-            return;
-        }
+        if (isInsideMenuBtn(clickX, clickY)) { gameState = 'PAUSED'; return; }
     }
 
     if (gameState !== 'PLAYING' || !selectedClass) return;
 
     const now = Date.now();
-    if (now - lastShotTime < selectedClass.fireRate) return;
+    if (now - lastShotTime < selectedClass.fireRate * player.fireRateMultiplier) return;
     lastShotTime = now;
 
     const dx = clickX - player.x;
@@ -483,6 +825,7 @@ canvas.addEventListener('click', (e) => {
 // ===== GEMEINSAME SCHUSS-FUNKTION =====
 function fireBullet(dirX, dirY) {
     if (!selectedClass) return;
+    const dmg = Math.round(selectedClass.damage * player.damageMultiplier);
 
     if (selectedClass.id === 1) {
         bullets.push({
@@ -491,7 +834,7 @@ function fireBullet(dirX, dirY) {
             size: selectedClass.bulletSize * 2,
             vx: dirX * selectedClass.bulletSpeed,
             vy: dirY * selectedClass.bulletSpeed,
-            damage: selectedClass.damage,
+            damage: dmg,
             piercing: true,
             color: '#ff88ff',
             glow: '#ff00ff',
@@ -505,7 +848,7 @@ function fireBullet(dirX, dirY) {
             size: selectedClass.bulletSize * 2,
             vx: dirX * selectedClass.bulletSpeed + (Math.random() - 0.5) * 1.5,
             vy: dirY * selectedClass.bulletSpeed + (Math.random() - 0.5) * 1.5,
-            damage: selectedClass.damage,
+            damage: dmg,
             piercing: false,
             color: '#ffff00',
             glow: '#ffaa00',
@@ -528,7 +871,7 @@ function fireBullet(dirX, dirY) {
                 size: selectedClass.bulletSize * 2,
                 vx: Math.cos(angle) * spd,
                 vy: Math.sin(angle) * spd,
-                damage: selectedClass.damage,
+                damage: dmg,
                 piercing: false,
                 maxRange: selectedClass.maxRange,
                 color: '#ffaa44',
@@ -547,7 +890,7 @@ setInterval(() => {
     if (!mouseDown) return;
 
     const now = Date.now();
-    if (now - lastShotTime < selectedClass.fireRate) return;
+    if (now - lastShotTime < selectedClass.fireRate * player.fireRateMultiplier) return;
     lastShotTime = now;
 
     const dx = mouseX - player.x;
@@ -565,6 +908,8 @@ function startGame(klasse) {
     resetPlayerPosition();
     resetGameState();
     lastShotTime = 0;
+    gameTime = 0;
+    lastTimerUpdate = Date.now();
 
     spawnInterval = 2000;
     if (spawnTimerId) clearInterval(spawnTimerId);
@@ -576,14 +921,24 @@ function startGame(klasse) {
 
 function resetGameState() {
     player.health = player.maxHealth;
+    player.level = 1;
+    player.xp = 0;
+    player.xpToNext = 50;
+    player.damageMultiplier = 1.0;
+    player.speedMultiplier = 1.0;
+    player.fireRateMultiplier = 1.0;
+    player.bulletSpeedMultiplier = 1.0;
+    player.lifesteal = 0;
     bullets = [];
     enemies = [];
     particles = [];
+    xpCrystals = [];
     score = 0;
     difficultyLevel = 1;
     enemyBaseSpeed = 1.2;
     gridOffsetX = 0;
     gridOffsetY = 0;
+    gameTime = 0;
 
     if (spawnTimerId) {
         clearInterval(spawnTimerId);
@@ -619,6 +974,18 @@ function spawnEnemy() {
         angle: Math.random() * Math.PI * 2,
         rotSpeed: (Math.random() - 0.5) * 0.03,
         health: 100
+    });
+}
+
+// ===== XP-KRISTALL DROPPEN =====
+function dropXpCrystal(x, y) {
+    xpCrystals.push({
+        x: x + (Math.random() - 0.5) * 20,
+        y: y + (Math.random() - 0.5) * 20,
+        size: 6,
+        color: '#4488ff',
+        glow: '#0044ff',
+        collected: false
     });
 }
 
@@ -666,14 +1033,22 @@ function update() {
         return;
     }
 
-    if (gameState === 'PAUSED' || gameState === 'GAMEOVER') return;
+    if (gameState === 'PAUSED' || gameState === 'GAMEOVER' || gameState === 'LEVEL_UP') return;
+
+    // === Timer ===
+    const now = Date.now();
+    if (lastTimerUpdate > 0) {
+        gameTime += (now - lastTimerUpdate) / 1000;
+    }
+    lastTimerUpdate = now;
 
     // === Spieler-Bewegung (Tastatur) ===
     let moving = false;
-    if (keys.w || keys.up) { player.y -= player.speed; moving = true; }
-    if (keys.s || keys.down) { player.y += player.speed; moving = true; }
-    if (keys.a || keys.left) { player.x -= player.speed; moving = true; }
-    if (keys.d || keys.right) { player.x += player.speed; moving = true; }
+    const currentSpeed = player.speed * player.speedMultiplier;
+    if (keys.w || keys.up) { player.y -= currentSpeed; moving = true; }
+    if (keys.s || keys.down) { player.y += currentSpeed; moving = true; }
+    if (keys.a || keys.left) { player.x -= currentSpeed; moving = true; }
+    if (keys.d || keys.right) { player.x += currentSpeed; moving = true; }
 
     // === Spieler-Bewegung (Touch-Joystick) ===
     if (isMobile && touchJoystickActive) {
@@ -685,8 +1060,8 @@ function update() {
         if (jLen > threshold) {
             const normX = jx / jLen;
             const normY = jy / jLen;
-            player.x += normX * player.speed;
-            player.y += normY * player.speed;
+            player.x += normX * currentSpeed;
+            player.y += normY * currentSpeed;
             moving = true;
         }
     }
@@ -706,17 +1081,14 @@ function update() {
 
     // Spieler-Winkel
     if (isMobile && touchJoystickActive) {
-        // Touch: Winkel basierend auf Joystick-Richtung
         const jLen = Math.sqrt(touchJoystickX * touchJoystickX + touchJoystickY * touchJoystickY);
         if (jLen > 10) {
             player.angle = Math.atan2(touchJoystickY, touchJoystickX);
-            touchJoystickLastAngle = player.angle; // aktualisieren
+            touchJoystickLastAngle = player.angle;
         }
     } else if (isMobile && !touchJoystickActive) {
-        // Touch, Joystick losgelassen: eingefrorenen Winkel beibehalten
         player.angle = touchJoystickLastAngle;
     } else {
-        // PC: Winkel zur Maus
         player.angle = Math.atan2(mouseY - player.y, mouseX - player.x);
     }
 
@@ -763,9 +1135,16 @@ function update() {
 
                 e.health -= b.damage;
 
+                // Lebensraub: heile % des verursachten Schadens
+                if (player.lifesteal > 0) {
+                    const healAmount = Math.round(b.damage * player.lifesteal);
+                    player.health = Math.min(player.health + healAmount, player.maxHealth);
+                }
+
                 if (e.health <= 0) {
                     createExplosion(e.x, e.y, 15, '#ff4444', '#ff0000', 4);
                     createExplosion(e.x, e.y, 5, '#ffaa00', '#ff6600', 2);
+                    dropXpCrystal(e.x, e.y);
                     enemies.splice(j, 1);
                     score += 100;
                 }
@@ -795,6 +1174,36 @@ function update() {
                 player.health = 0;
                 gameState = 'GAMEOVER';
                 if (spawnTimerId) clearInterval(spawnTimerId);
+            }
+        }
+    }
+
+    // === XP-Kristalle: Magnet-Effekt + Einsammeln ===
+    const magnetRadius = 120;
+    const collectRadius = 15;
+
+    for (let i = xpCrystals.length - 1; i >= 0; i--) {
+        const c = xpCrystals[i];
+        const dx = player.x - c.x;
+        const dy = player.y - c.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+
+        if (dist < magnetRadius) {
+            // Magnet: zum Spieler fliegen
+            const speed = 6;
+            c.x += (dx / dist) * speed;
+            c.y += (dy / dist) * speed;
+        }
+
+        if (dist < collectRadius) {
+            // Eingesammelt
+            player.xp += 10;
+            xpCrystals.splice(i, 1);
+
+            // Prüfen ob Level-Up
+            if (player.xp >= player.xpToNext) {
+                gameState = 'LEVEL_UP';
+                generateLevelUpOptions();
             }
         }
     }
@@ -918,6 +1327,371 @@ function drawParticles() {
     }
 }
 
+function drawXpCrystals() {
+    for (const c of xpCrystals) {
+        ctx.save();
+        ctx.shadowBlur = 12;
+        ctx.shadowColor = c.glow;
+        ctx.fillStyle = c.color;
+        ctx.beginPath();
+        ctx.arc(c.x, c.y, c.size, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Leuchtender Kern
+        ctx.shadowBlur = 0;
+        ctx.fillStyle = '#aaccff';
+        ctx.beginPath();
+        ctx.arc(c.x, c.y, c.size * 0.4, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+    }
+}
+
+// ===== MAIN MENÜ =====
+function drawMainMenu() {
+    ctx.fillStyle = '#0a0a1a';
+    ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+    // Partikel animieren
+    for (const p of mainMenuParticles) {
+        p.x += p.vx;
+        p.y += p.vy;
+        if (p.x < 0) p.x = CANVAS_WIDTH;
+        if (p.x > CANVAS_WIDTH) p.x = 0;
+        if (p.y < 0) p.y = CANVAS_HEIGHT;
+        if (p.y > CANVAS_HEIGHT) p.y = 0;
+    }
+
+    for (const p of mainMenuParticles) {
+        ctx.save();
+        ctx.globalAlpha = p.alpha;
+        ctx.fillStyle = p.color;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalAlpha = 1;
+        ctx.restore();
+    }
+
+    ctx.textAlign = 'center';
+
+    // Titel
+    ctx.shadowBlur = 40;
+    ctx.shadowColor = '#00ffcc';
+    ctx.fillStyle = '#00ffcc';
+    const titleSize = Math.min(100, CANVAS_WIDTH * 0.12);
+    ctx.font = `bold ${titleSize}px Arial`;
+    ctx.fillText('HUNTERZ', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 60);
+    ctx.shadowBlur = 0;
+
+    // Start Button
+    const startBtnX = CANVAS_WIDTH / 2;
+    const startBtnY = CANVAS_HEIGHT / 2 + 30;
+    const btnWidth = 240;
+    const btnHeight = 60;
+    const startHoverScale = (hoveredButton === 'start') ? 1.05 : 1;
+    const startW = btnWidth * startHoverScale;
+    const startH = btnHeight * startHoverScale;
+    
+    ctx.fillStyle = 'rgba(0, 200, 150, 0.3)';
+    ctx.strokeStyle = '#00cc99';
+    ctx.lineWidth = 3;
+    ctx.shadowBlur = 20;
+    ctx.shadowColor = '#00ffcc';
+    roundRect(ctx, startBtnX - startW/2, startBtnY - startH/2, startW, startH, 15);
+    ctx.fill();
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+    
+    ctx.fillStyle = '#00ffcc';
+    ctx.font = `bold 28px Arial`;
+    ctx.fillText('Spiel Starten', startBtnX, startBtnY + 10);
+
+    // Options Button
+    const optBtnX = CANVAS_WIDTH / 2;
+    const optBtnY = CANVAS_HEIGHT / 2 + 110;
+    const optHoverScale = (hoveredButton === 'options') ? 1.05 : 1;
+    const optW = btnWidth * optHoverScale;
+    const optH = btnHeight * optHoverScale;
+    
+    ctx.fillStyle = 'rgba(100, 100, 200, 0.3)';
+    ctx.strokeStyle = '#6666cc';
+    ctx.lineWidth = 3;
+    ctx.shadowBlur = 20;
+    ctx.shadowColor = '#6666cc';
+    roundRect(ctx, optBtnX - optW/2, optBtnY - optH/2, optW, optH, 15);
+    ctx.fill();
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+    
+    ctx.fillStyle = '#aaaaff';
+    ctx.font = `bold 28px Arial`;
+    ctx.fillText('Optionen', optBtnX, optBtnY + 10);
+
+    ctx.textAlign = 'left';
+}
+
+// ===== CHARAKTER AUSWAHL =====
+function drawCharSelect() {
+    ctx.fillStyle = '#0a0a1a';
+    ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+    drawGrid();
+
+    // Hintergrund-Partikel
+    for (const p of menuParticles) {
+        p.x += p.vx;
+        p.y += p.vy;
+        if (p.x < 0) p.x = CANVAS_WIDTH;
+        if (p.x > CANVAS_WIDTH) p.x = 0;
+        if (p.y < 0) p.y = CANVAS_HEIGHT;
+        if (p.y > CANVAS_HEIGHT) p.y = 0;
+    }
+    for (const p of menuParticles) {
+        ctx.save();
+        ctx.globalAlpha = p.alpha;
+        ctx.fillStyle = p.color;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalAlpha = 1;
+        ctx.restore();
+    }
+
+    ctx.textAlign = 'center';
+
+    // Titel
+    ctx.shadowBlur = 30;
+    ctx.shadowColor = '#00ffcc';
+    ctx.fillStyle = '#00ffcc';
+    const titleSize = Math.min(56, CANVAS_WIDTH * 0.08);
+    ctx.font = `bold ${titleSize}px Arial`;
+    ctx.fillText('Wähle deinen Charakter', CANVAS_WIDTH / 2, titleSize + 50);
+    ctx.shadowBlur = 0;
+
+    // Beschreibender Text oben am Bildschirmrand
+    const char = CHARACTERS.WEAPON_SPECIALIST;
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '20px Arial';
+    ctx.fillText(char.description, CANVAS_WIDTH / 2, 130);
+
+    // Charakter-Karten
+    const cardWidth = Math.min(280, CANVAS_WIDTH * 0.35);
+    const cardHeight = Math.min(380, CANVAS_HEIGHT * 0.5);
+    const gap = Math.min(40, (CANVAS_WIDTH - 3 * cardWidth) / 4);
+    const totalWidth = 3 * cardWidth + 2 * gap;
+    const startX = (CANVAS_WIDTH - totalWidth) / 2;
+    const cardY = CANVAS_HEIGHT * 0.3;
+
+    // Verfügbarer Charakter (Waffenspezialist)
+    const cx1 = startX;
+    const hoverScale = (hoveredCharIndex === 0) ? 1.05 : 1;
+    const drawW = cardWidth * hoverScale;
+    const drawH = cardHeight * hoverScale;
+    const drawX = cx1 - (drawW - cardWidth) / 2;
+    const drawY = cardY - (drawH - cardHeight) / 2;
+    
+    // Karten-Hintergrund (mit Bild falls vorhanden, sonst Fallback)
+    ctx.fillStyle = 'rgba(20, 20, 50, 0.9)';
+    ctx.strokeStyle = char.color;
+    ctx.lineWidth = 3;
+    ctx.shadowBlur = 20;
+    ctx.shadowColor = char.color;
+    roundRect(ctx, drawX, drawY, drawW, drawH, 16);
+    ctx.fill();
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+
+    // Charakter-Bild (gestretcht auf volle Kartengröße, mit Clip-Maske & Fallback)
+    if (charImage_waffenspezialist.complete && charImage_waffenspezialist.naturalWidth > 0) {
+        ctx.save();
+        // Abgerundeten Kartenpfad als Clip-Maske verwenden
+        roundRect(ctx, drawX, drawY, drawW, drawH, 16);
+        ctx.clip();
+        ctx.drawImage(charImage_waffenspezialist, drawX, drawY, drawW, drawH);
+        ctx.restore();
+    }
+
+    // Dunkler Verlauf am unteren Rand für bessere Textlesbarkeit
+    const textGrad = ctx.createLinearGradient(0, drawY + drawH * 0.6, 0, drawY + drawH);
+    textGrad.addColorStop(0, 'rgba(10, 10, 30, 0)');
+    textGrad.addColorStop(1, 'rgba(10, 10, 30, 0.85)');
+    ctx.fillStyle = textGrad;
+    ctx.save();
+    roundRect(ctx, drawX, drawY, drawW, drawH, 16);
+    ctx.clip();
+    ctx.fillRect(drawX, drawY + drawH * 0.6, drawW, drawH * 0.4);
+    ctx.restore();
+
+    // Text im unteren Drittel der Karte mit Padding & Schatten
+    const fs = Math.min(24, cardWidth * 0.085);
+
+    ctx.textAlign = 'center';
+    ctx.shadowColor = '#000000';
+    ctx.shadowBlur = 4;
+
+    // Charakter-Name
+    ctx.fillStyle = char.color;
+    ctx.font = `bold ${fs}px Arial`;
+    ctx.fillText(char.name, drawX + drawW / 2, drawY + drawH * 0.75);
+
+    // Beschreibung direkt unter dem Namen (kompakter Block)
+    ctx.fillStyle = '#ffffff';
+    ctx.font = `${fs * 0.6}px Arial`;
+    ctx.fillText(char.description, drawX + drawW / 2, drawY + drawH * 0.75 + fs * 0.65);
+
+    ctx.shadowBlur = 0;
+
+    // Platzhalter 1 und 2 (ausgegraut)
+    for (let i = 1; i <= 2; i++) {
+        const cx = startX + i * (cardWidth + gap);
+        const phoverScale = (hoveredCharIndex === i) ? 1.05 : 1;
+        const pdrawW = cardWidth * phoverScale;
+        const pdrawH = cardHeight * phoverScale;
+        const pdrawX = cx - (pdrawW - cardWidth) / 2;
+        const pdrawY = cardY - (pdrawH - cardHeight) / 2;
+        
+        ctx.fillStyle = 'rgba(40, 40, 60, 0.7)';
+        ctx.strokeStyle = 'rgba(100, 100, 100, 0.4)';
+        ctx.lineWidth = 2;
+        roundRect(ctx, pdrawX, pdrawY, pdrawW, pdrawH, 16);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.fillStyle = 'rgba(150, 150, 150, 0.6)';
+        ctx.font = `${fs * 0.75}px Arial`;
+        ctx.fillText('Demnächst verfügbar...', pdrawX + pdrawW/2, pdrawY + pdrawH/2);
+    }
+
+    ctx.fillStyle = '#666666';
+    ctx.font = '16px Arial';
+    ctx.fillText('ESC = Zurück | Klicke auf einen Charakter', CANVAS_WIDTH / 2, CANVAS_HEIGHT - 30);
+
+    ctx.textAlign = 'left';
+}
+
+// ===== WAFFEN AUSWAHL =====
+function drawWeaponSelect() {
+    ctx.fillStyle = '#0a0a1a';
+    ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+    drawGrid();
+
+    for (const p of menuParticles) {
+        p.x += p.vx;
+        p.y += p.vy;
+        if (p.x < 0) p.x = CANVAS_WIDTH;
+        if (p.x > CANVAS_WIDTH) p.x = 0;
+        if (p.y < 0) p.y = CANVAS_HEIGHT;
+        if (p.y > CANVAS_HEIGHT) p.y = 0;
+    }
+    for (const p of menuParticles) {
+        ctx.save();
+        ctx.globalAlpha = p.alpha;
+        ctx.fillStyle = p.color;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalAlpha = 1;
+        ctx.restore();
+    }
+
+    ctx.textAlign = 'center';
+
+    // Titel
+    ctx.shadowBlur = 30;
+    ctx.shadowColor = '#00ffcc';
+    ctx.fillStyle = '#00ffcc';
+    const titleSize = Math.min(56, CANVAS_WIDTH * 0.08);
+    ctx.font = `bold ${titleSize}px Arial`;
+    ctx.fillText('Wähle deine Waffe', CANVAS_WIDTH / 2, titleSize + 50);
+    ctx.shadowBlur = 0;
+
+    if (selectedCharacter) {
+        ctx.fillStyle = '#ffffff';
+        ctx.font = '20px Arial';
+        ctx.fillText('Charakter: ' + selectedCharacter.name, CANVAS_WIDTH / 2, titleSize + 90);
+    }
+
+    // Waffen-Karten
+    const classes = [CLASSES.SNIPER, CLASSES.MACHINEGUN, CLASSES.SHOTGUN];
+    const cardWidth = Math.min(220, (CANVAS_WIDTH - 80) / 3);
+    const cardHeight = Math.min(260, CANVAS_HEIGHT * 0.45);
+    const gap = Math.min(30, (CANVAS_WIDTH - 3 * cardWidth) / 4);
+    const totalWidth = classes.length * cardWidth + (classes.length - 1) * gap;
+    const startX = (CANVAS_WIDTH - totalWidth) / 2;
+    const cardY = Math.min(210, CANVAS_HEIGHT * 0.35);
+
+    for (let i = 0; i < classes.length; i++) {
+        const c = classes[i];
+        const cx = startX + i * (cardWidth + gap);
+        
+        // Hover-Effekt: 5% größer
+        const hoverScale = (hoveredWeaponIndex === i) ? 1.05 : 1;
+        const drawW = cardWidth * hoverScale;
+        const drawH = cardHeight * hoverScale;
+        const drawX = cx - (drawW - cardWidth) / 2;
+        const drawY = cardY - (drawH - cardHeight) / 2;
+
+        ctx.fillStyle = 'rgba(20, 20, 50, 0.8)';
+        ctx.strokeStyle = c.color;
+        ctx.lineWidth = 2;
+        ctx.shadowBlur = 15;
+        ctx.shadowColor = c.color;
+
+        const r = 12;
+        ctx.beginPath();
+        ctx.moveTo(drawX + r, drawY);
+        ctx.lineTo(drawX + drawW - r, drawY);
+        ctx.quadraticCurveTo(drawX + drawW, drawY, drawX + drawW, drawY + r);
+        ctx.lineTo(drawX + drawW, drawY + drawH - r);
+        ctx.quadraticCurveTo(drawX + drawW, drawY + drawH, drawX + drawW - r, drawY + drawH);
+        ctx.lineTo(drawX + r, drawY + drawH);
+        ctx.quadraticCurveTo(drawX, drawY + drawH, drawX, drawY + drawH - r);
+        ctx.lineTo(drawX, drawY + r);
+        ctx.lineTo(drawX, drawY + r);
+        ctx.quadraticCurveTo(drawX, drawY, drawX + r, drawY);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+
+        const fs = Math.min(24, cardWidth * 0.11);
+        ctx.fillStyle = c.color;
+        ctx.font = `bold ${fs}px Arial`;
+        
+        // Name ohne [ID]
+        ctx.fillText(c.name, drawX + drawW / 2, drawY + fs + 10);
+
+        ctx.fillStyle = '#aaaaaa';
+        ctx.font = `${fs * 0.6}px Arial`;
+        ctx.fillText(c.description, drawX + drawW / 2, drawY + fs * 2.8 + 20);
+
+        ctx.fillStyle = c.color;
+        ctx.font = `${fs * 0.55}px Arial`;
+        ctx.fillText(c.detail, drawX + drawW / 2, drawY + fs * 3.5 + 25);
+
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+        ctx.beginPath();
+        ctx.moveTo(drawX + 20, drawY + fs * 4.2 + 25);
+        ctx.lineTo(drawX + drawW - 20, drawY + fs * 4.2 + 25);
+        ctx.stroke();
+
+        ctx.fillStyle = '#cccccc';
+        ctx.font = `${fs * 0.5}px Arial`;
+        const stats = getClassStats(c);
+        for (let s = 0; s < stats.length; s++) {
+            ctx.fillText(stats[s], drawX + drawW / 2, drawY + fs * 5 + 30 + s * fs * 0.9);
+        }
+    }
+
+    ctx.fillStyle = '#666666';
+    ctx.font = '14px Arial';
+    ctx.fillText('ESC = Zurück | Klicke zum Starten', CANVAS_WIDTH / 2, CANVAS_HEIGHT - 30);
+
+    ctx.textAlign = 'left';
+}
+
 // ===== MENÜ ZEICHNEN =====
 function drawMenu() {
     ctx.fillStyle = '#0a0a1a';
@@ -987,7 +1761,7 @@ function drawMenu() {
         const fs = Math.min(24, cardWidth * 0.11);
         ctx.fillStyle = c.color;
         ctx.font = `bold ${fs}px Arial`;
-        ctx.fillText('[' + c.id + ']', cx + cardWidth / 2, cardY + fs + 10);
+        ctx.fillText(c.name, cx + cardWidth / 2, cardY + fs + 10);
 
         ctx.fillStyle = '#ffffff';
         ctx.font = `bold ${fs * 0.9}px Arial`;
@@ -1017,7 +1791,7 @@ function drawMenu() {
 
     ctx.fillStyle = '#666666';
     ctx.font = '14px Arial';
-    ctx.fillText('Drücke 1, 2 oder 3 um zu starten', CANVAS_WIDTH / 2, CANVAS_HEIGHT - 30);
+    ctx.fillText('Klicke zum Starten', CANVAS_WIDTH / 2, CANVAS_HEIGHT - 30);
 
     ctx.textAlign = 'left';
 }
@@ -1029,7 +1803,7 @@ function getClassStats(klasse) {
     return [];
 }
 
-// ===== MENÜ-BUTTON (oben rechts) ZEICHNEN =====
+// ===== MENÜ-BUTTON (oben rechts) =====
 function drawMenuButton() {
     if (gameState !== 'PLAYING') return;
 
@@ -1047,7 +1821,6 @@ function drawMenuButton() {
     ctx.stroke();
     ctx.globalAlpha = 1;
 
-    // Pausen-Symbol (zwei Striche)
     ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
     ctx.fillRect(cx - 8, cy - 11, 5, 22);
     ctx.fillRect(cx + 3, cy - 11, 5, 22);
@@ -1055,7 +1828,7 @@ function drawMenuButton() {
     ctx.restore();
 }
 
-// ===== PAUSE-MENÜ ZEICHNEN =====
+// ===== PAUSE-MENÜ =====
 function drawPauseMenu() {
     ctx.fillStyle = 'rgba(0, 0, 0, 0.75)';
     ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
@@ -1069,7 +1842,6 @@ function drawPauseMenu() {
     ctx.fillText('PAUSE', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 80);
     ctx.shadowBlur = 0;
 
-    // Button: Weiter (ESC)
     const cb = pauseContinueBtn;
     const bx = cb.x();
     const by = cb.y();
@@ -1079,12 +1851,10 @@ function drawPauseMenu() {
     roundRect(ctx, bx - cb.w/2, by - cb.h/2, cb.w, cb.h, 10);
     ctx.fill();
     ctx.stroke();
-
     ctx.fillStyle = '#00cc99';
     ctx.font = 'bold 22px Arial';
     ctx.fillText('Weiter (ESC)', bx, by + 8);
 
-    // Button: Zurück zum Menü (M)
     const mb = pauseMenuBtn;
     const mbx = mb.x();
     const mby = mb.y();
@@ -1094,7 +1864,6 @@ function drawPauseMenu() {
     roundRect(ctx, mbx - mb.w/2, mby - mb.h/2, mb.w, mb.h, 10);
     ctx.fill();
     ctx.stroke();
-
     ctx.fillStyle = '#cc4444';
     ctx.font = 'bold 22px Arial';
     ctx.fillText('Zurück zum Menü (M)', mbx, mby + 8);
@@ -1116,7 +1885,181 @@ function roundRect(ctx, x, y, w, h, r) {
     ctx.closePath();
 }
 
-// ===== GAME OVER ZEICHNEN =====
+// ===== LEVEL-UP MENÜ =====
+function drawLevelUpMenu() {
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+    ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+    ctx.textAlign = 'center';
+
+    ctx.fillStyle = '#00ffcc';
+    ctx.shadowBlur = 20;
+    ctx.shadowColor = '#00ffcc';
+    ctx.font = 'bold 42px Arial';
+    ctx.fillText('LEVEL UP!', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 120);
+    ctx.shadowBlur = 0;
+
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '20px Arial';
+    ctx.fillText('Wähle ein Upgrade', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 75);
+
+    const cardW = Math.min(220, (CANVAS_WIDTH - 80) / 3);
+    const cardH = Math.min(200, CANVAS_HEIGHT * 0.35);
+    const gap = Math.min(30, (CANVAS_WIDTH - 3 * cardW) / 4);
+    const totalW = 3 * cardW + 2 * gap;
+    const startX = (CANVAS_WIDTH - totalW) / 2;
+    const cardY = CANVAS_HEIGHT / 2 - cardH / 2 + 30;
+
+    for (let i = 0; i < levelUpOptions.length; i++) {
+        const cx = startX + i * (cardW + gap);
+        const opt = levelUpOptions[i];
+        const rarityColor = opt.rarity.color;
+
+        ctx.fillStyle = 'rgba(20, 20, 50, 0.9)';
+        ctx.strokeStyle = rarityColor;
+        ctx.lineWidth = 2;
+        ctx.shadowBlur = 15;
+        ctx.shadowColor = rarityColor;
+
+        const r = 12;
+        ctx.beginPath();
+        ctx.moveTo(cx + r, cardY);
+        ctx.lineTo(cx + cardW - r, cardY);
+        ctx.quadraticCurveTo(cx + cardW, cardY, cx + cardW, cardY + r);
+        ctx.lineTo(cx + cardW, cardY + cardH - r);
+        ctx.quadraticCurveTo(cx + cardW, cardY + cardH, cx + cardW - r, cardY + cardH);
+        ctx.lineTo(cx + r, cardY + cardH);
+        ctx.quadraticCurveTo(cx, cardY + cardH, cx, cardY + cardH - r);
+        ctx.lineTo(cx, cardY + r);
+        ctx.quadraticCurveTo(cx, cardY, cx + r, cardY);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+
+        ctx.fillStyle = rarityColor;
+        ctx.font = 'bold 16px Arial';
+        ctx.fillText(opt.displayName, cx + cardW / 2, cardY + cardH / 2 + 6);
+    }
+
+    // Farb-Legende: Wörter in Farbe nebeneinander, getrennt durch ' | '
+    const legendY = CANVAS_HEIGHT - 50;
+    ctx.font = '15px Arial';
+
+    const legendColors = ['#cccccc', '#00cc44', '#4488ff', '#aa44ff', '#ff8800'];
+    const words = ['Gewöhnlich', 'Ungewöhnlich', 'Selten', 'Rar', 'Legendär'];
+    const separator = ' | ';
+
+    // Gesamtbreite berechnen
+    let totalLegendWidth = 0;
+    for (let i = 0; i < words.length; i++) {
+        totalLegendWidth += ctx.measureText(words[i]).width;
+        if (i < words.length - 1) totalLegendWidth += ctx.measureText(separator).width;
+    }
+
+    let legendX = (CANVAS_WIDTH - totalLegendWidth) / 2;
+    ctx.textAlign = 'left';
+
+    for (let i = 0; i < words.length; i++) {
+        ctx.fillStyle = legendColors[i];
+        ctx.fillText(words[i], legendX, legendY);
+        legendX += ctx.measureText(words[i]).width;
+        if (i < words.length - 1) {
+            ctx.fillStyle = '#888888';
+            ctx.fillText(separator, legendX, legendY);
+            legendX += ctx.measureText(separator).width;
+        }
+    }
+
+    ctx.fillStyle = '#666666';
+    ctx.font = '14px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText('Klicke oder tippe auf ein Upgrade', CANVAS_WIDTH / 2, CANVAS_HEIGHT - 15);
+
+    ctx.textAlign = 'left';
+}
+
+// ===== OPTIONS MENÜ =====
+function drawOptionsMenu() {
+    ctx.fillStyle = '#0a0a1a';
+    ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+    drawGrid();
+
+    // Hintergrund-Partikel
+    for (const p of menuParticles) {
+        p.x += p.vx;
+        p.y += p.vy;
+        if (p.x < 0) p.x = CANVAS_WIDTH;
+        if (p.x > CANVAS_WIDTH) p.x = 0;
+        if (p.y < 0) p.y = CANVAS_HEIGHT;
+        if (p.y > CANVAS_HEIGHT) p.y = 0;
+    }
+    for (const p of menuParticles) {
+        ctx.save();
+        ctx.globalAlpha = p.alpha;
+        ctx.fillStyle = p.color;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalAlpha = 1;
+        ctx.restore();
+    }
+
+    ctx.textAlign = 'center';
+
+    // Titel
+    ctx.shadowBlur = 30;
+    ctx.shadowColor = '#00ffcc';
+    ctx.fillStyle = '#00ffcc';
+    const titleSize = Math.min(56, CANVAS_WIDTH * 0.08);
+    ctx.font = `bold ${titleSize}px Arial`;
+    ctx.fillText('Optionen', CANVAS_WIDTH / 2, titleSize + 50);
+    ctx.shadowBlur = 0;
+
+    // Einstellungen-Startposition
+    const startY = CANVAS_HEIGHT / 2 - 50;
+    const lineHeight = 35;
+
+    // Spieleinstellungen
+    ctx.fillStyle = '#00ffcc';
+    ctx.font = 'bold 20px Arial';
+    ctx.textAlign = 'left';
+    const leftX = CANVAS_WIDTH / 2 - 150;
+    ctx.fillText('Spieleinstellungen:', leftX, startY);
+    
+    ctx.fillStyle = '#aaaaaa';
+    ctx.font = '18px Arial';
+    ctx.fillText('Schwierigkeitsgrad (Normal)', leftX + 30, startY + lineHeight);
+
+    // Audio
+    ctx.fillStyle = '#00ffcc';
+    ctx.font = 'bold 20px Arial';
+    ctx.fillText('Audio:', leftX, startY + lineHeight * 2.5);
+    
+    ctx.fillStyle = '#aaaaaa';
+    ctx.font = '18px Arial';
+    ctx.fillText('Musik-Lautstärke (80%)  |  Soundeffekte (100%)', leftX + 30, startY + lineHeight * 3.5);
+
+    // Video
+    ctx.fillStyle = '#00ffcc';
+    ctx.font = 'bold 20px Arial';
+    ctx.fillText('Video:', leftX, startY + lineHeight * 5);
+    
+    ctx.fillStyle = '#aaaaaa';
+    ctx.font = '18px Arial';
+    ctx.fillText('Kontrast (Standard)', leftX + 30, startY + lineHeight * 6);
+
+    // Hilfetext unten
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#666666';
+    ctx.font = '14px Arial';
+    ctx.fillText('ESC = Zurück zum Hauptmenü', CANVAS_WIDTH / 2, CANVAS_HEIGHT - 30);
+
+    ctx.textAlign = 'left';
+}
+
+// ===== GAME OVER =====
 function drawGameOver() {
     drawGrid();
     ctx.fillStyle = 'rgba(0, 0, 0, 0.75)';
@@ -1130,168 +2073,130 @@ function drawGameOver() {
     ctx.fillText('GAME OVER', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 50);
     ctx.shadowBlur = 0;
 
-    if (selectedClass) {
-        ctx.fillStyle = selectedClass.color;
-        ctx.font = '20px Arial';
-        ctx.fillText('Klasse: ' + selectedClass.name, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2);
-    }
-
     ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 28px Arial';
-    ctx.fillText('Score: ' + score, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 40);
+    ctx.font = '24px Arial';
+    ctx.fillText('Score: ' + score, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 10);
+    ctx.fillText('Level: ' + player.level, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 45);
 
-    ctx.font = '22px Arial';
-    ctx.fillText('Drücke R für Menü', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 90);
+    ctx.fillStyle = '#888888';
+    ctx.font = '18px Arial';
+    ctx.fillText('Drücke R um zurück zum Menü zu kommen', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 100);
+
     ctx.textAlign = 'left';
-}
-
-// ===== TOUCH-UI ZEICHNEN =====
-function drawTouchUI() {
-    if (!isMobile) return;
-
-    const jcx = joystickCenterX();
-    const jcy = joystickCenterY();
-
-    ctx.save();
-    ctx.globalAlpha = 0.25;
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.arc(jcx, jcy, joystickRadius, 0, Math.PI * 2);
-    ctx.stroke();
-    ctx.globalAlpha = 1;
-    ctx.restore();
-
-    ctx.save();
-    ctx.globalAlpha = 0.4;
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
-    ctx.beginPath();
-    ctx.arc(jcx + touchJoystickX, jcy + touchJoystickY, joystickKnobRadius, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.globalAlpha = 1;
-    ctx.restore();
-
-    const fcx = fireBtnCenterX();
-    const fcy = fireBtnCenterY();
-    const isPressed = touchFireActive;
-
-    ctx.save();
-    ctx.globalAlpha = isPressed ? 0.5 : 0.3;
-    ctx.fillStyle = isPressed ? '#ff4444' : 'rgba(255, 100, 100, 0.4)';
-    ctx.strokeStyle = isPressed ? '#ff0000' : 'rgba(255, 255, 255, 0.5)';
-    ctx.lineWidth = 3;
-    ctx.beginPath();
-    ctx.arc(fcx, fcy, fireBtnRadius, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.stroke();
-    ctx.globalAlpha = 1;
-
-    ctx.strokeStyle = isPressed ? '#ffffff' : 'rgba(255, 255, 255, 0.7)';
-    ctx.lineWidth = 2;
-    const crossSize = 18;
-    ctx.beginPath();
-    ctx.moveTo(fcx - crossSize, fcy);
-    ctx.lineTo(fcx + crossSize, fcy);
-    ctx.moveTo(fcx, fcy - crossSize);
-    ctx.lineTo(fcx, fcy + crossSize);
-    ctx.stroke();
-
-    ctx.beginPath();
-    ctx.arc(fcx, fcy, 8, 0, Math.PI * 2);
-    ctx.stroke();
-
-    ctx.fillStyle = isPressed ? '#ffffff' : 'rgba(255, 255, 255, 0.6)';
-    ctx.font = 'bold 11px Arial';
-    ctx.textAlign = 'center';
-    ctx.fillText('FEUER', fcx, fcy + fireBtnRadius + 20);
-    ctx.textAlign = 'left';
-    ctx.restore();
-}
-
-// ===== HUD =====
-function drawHUD() {
-    ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 20px Arial';
-    ctx.shadowBlur = 4;
-    ctx.shadowColor = '#000000';
-    ctx.fillText('Score: ' + score, 15, 25);
-
-    ctx.font = '20px Arial';
-    ctx.fillText('Leben: ' + player.health + '/' + player.maxHealth, 15, 55);
-    ctx.shadowBlur = 0;
-
-    const barWidth = Math.min(200, CANVAS_WIDTH * 0.25);
-    const barHeight = 20;
-    const barX = 15;
-    const barY = 65;
-    const healthPercent = player.health / player.maxHealth;
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
-    ctx.fillRect(barX, barY, barWidth, barHeight);
-    ctx.fillStyle = healthPercent > 0.6 ? '#00ff00' : healthPercent > 0.3 ? '#ffff00' : '#ff0000';
-    ctx.fillRect(barX, barY, barWidth * healthPercent, barHeight);
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
-    ctx.strokeRect(barX, barY, barWidth, barHeight);
-
-    if (selectedClass) {
-        ctx.fillStyle = selectedClass.color;
-        ctx.font = 'bold 16px Arial';
-        ctx.shadowBlur = 4;
-        ctx.shadowColor = '#000000';
-        ctx.fillText('Klasse: ' + selectedClass.name, 15, 110);
-        ctx.shadowBlur = 0;
-    }
-
-    ctx.fillStyle = '#aaaaaa';
-    ctx.font = '14px Arial';
-    ctx.fillText('Schwierigkeit: Level ' + difficultyLevel, 15, 135);
-
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
-    ctx.font = '12px Arial';
-    ctx.textAlign = 'right';
-    ctx.fillText('ESC = Pause', CANVAS_WIDTH - 15, 25);
-    ctx.textAlign = 'left';
-}
-
-// ===== DRAW =====
-function draw() {
-    ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
-
-    if (gameState === 'MENU') {
-        drawMenu();
-        return;
-    }
-
-    if (gameState === 'GAMEOVER') {
-        drawGameOver();
-        return;
-    }
-
-    // PLAYING or PAUSED
-    drawGrid();
-    drawParticles();
-
-    for (const e of enemies) drawEnemy(e);
-    for (const b of bullets) drawBullet(b);
-    drawPlayer();
-    drawHUD();
-    drawTouchUI();
-    drawMenuButton();
-
-    if (gameState === 'PAUSED') {
-        drawPauseMenu();
-    }
 }
 
 // ===== GAME LOOP =====
 function gameLoop() {
     update();
-    draw();
+
+    // Zeichnen
+    if (gameState === 'MAIN_MENU') drawMainMenu();
+    else if (gameState === 'OPTIONS') drawOptionsMenu();
+    else if (gameState === 'CHAR_SELECT') drawCharSelect();
+    else if (gameState === 'WEAPON_SELECT') drawWeaponSelect();
+    else if (gameState === 'MENU') drawMenu();
+    else if (gameState === 'PLAYING') {
+        ctx.fillStyle = '#0a0a1a';
+        ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+        drawGrid();
+        drawXpCrystals();
+        for (const e of enemies) drawEnemy(e);
+        for (const b of bullets) drawBullet(b);
+        drawPlayer();
+        drawParticles();
+        drawMenuButton();
+
+        // === XP-Balken (ganz oben, 8px, Neon-Blau/Lila-Verlauf) ===
+        const xpBarH = 8;
+        const xpBarX = 20;
+        const xpBarW = CANVAS_WIDTH - xpBarX;
+        const xpFillW = xpBarW * (player.xp / player.xpToNext);
+
+        ctx.fillStyle = 'rgba(30, 30, 60, 0.8)';
+        ctx.fillRect(xpBarX, 0, xpBarW, xpBarH);
+
+        const xpGrad = ctx.createLinearGradient(xpBarX, 0, xpBarX + xpBarW, 0);
+        xpGrad.addColorStop(0, '#4488ff');
+        xpGrad.addColorStop(1, '#aa44ff');
+        ctx.fillStyle = xpGrad;
+        ctx.fillRect(xpBarX, 0, xpFillW, xpBarH);
+
+        // LVL X unter dem XP-Balken
+        ctx.textAlign = 'left';
+        ctx.fillStyle = '#00ffcc';
+        ctx.font = 'bold 14px Arial';
+        ctx.fillText('LVL ' + player.level, 20, 25);
+
+        // Score unter LVL
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 20px Arial';
+        ctx.fillText('Score: ' + score, 20, 50);
+
+        // Lebensbalken (unter Score)
+        const hpBarW = 200;
+        const hpBarH = 18;
+        const hpBarX = 20;
+        const hpBarY = 70;
+        ctx.fillStyle = 'rgba(255, 0, 0, 0.3)';
+        ctx.fillRect(hpBarX, hpBarY, hpBarW, hpBarH);
+        ctx.fillStyle = '#00ff66';
+        ctx.fillRect(hpBarX, hpBarY, hpBarW * (player.health / player.maxHealth), hpBarH);
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(hpBarX, hpBarY, hpBarW, hpBarH);
+
+        // HP-Text zentriert auf dem Lebensbalken
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 12px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(Math.round(player.health) + ' / ' + player.maxHealth, hpBarX + hpBarW / 2, hpBarY + hpBarH / 2);
+        ctx.textBaseline = 'alphabetic';
+
+        // Timer
+        ctx.fillStyle = '#ffffff';
+        ctx.font = '16px Arial';
+        ctx.textAlign = 'center';
+        const mins = Math.floor(gameTime / 60);
+        const secs = Math.floor(gameTime % 60);
+        ctx.fillText(`${mins}:${secs.toString().padStart(2, '0')}`, CANVAS_WIDTH / 2, 30);
+        ctx.textAlign = 'left';
+    }
+    else if (gameState === 'PAUSED') {
+        ctx.fillStyle = '#0a0a1a';
+        ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+        drawGrid();
+        drawXpCrystals();
+        for (const e of enemies) drawEnemy(e);
+        for (const b of bullets) drawBullet(b);
+        drawPlayer();
+        drawParticles();
+        drawPauseMenu();
+    }
+    else if (gameState === 'LEVEL_UP') {
+        ctx.fillStyle = '#0a0a1a';
+        ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+        drawGrid();
+        drawXpCrystals();
+        for (const e of enemies) drawEnemy(e);
+        for (const b of bullets) drawBullet(b);
+        drawPlayer();
+        drawParticles();
+        drawLevelUpMenu();
+    }
+    else if (gameState === 'GAMEOVER') {
+        drawGameOver();
+    }
+
     requestAnimationFrame(gameLoop);
 }
 
-canvas.addEventListener('touchstart', handleTouchStart, { passive: false });
-canvas.addEventListener('touchmove', handleTouchMove, { passive: false });
-canvas.addEventListener('touchend', handleTouchEnd, { passive: false });
-canvas.addEventListener('touchcancel', handleTouchEnd, { passive: false });
+requestAnimationFrame(gameLoop);
 
-gameLoop();
+// ============================================================
+// TODO: BALANCING & GAMEPLAY UPGRADES
+// ============================================================
+// - Level-Up Karten nerfen/buffen
+// - Rare Gegner & Minibosse integrieren
+// - Truppen-Drops bei Bossen (Vampire Survivors Style) für Sonderfähigkeiten
+// ============================================================
