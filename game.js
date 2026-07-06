@@ -14,6 +14,11 @@ function resizeCanvas() {
 resizeCanvas();
 window.addEventListener('resize', resizeCanvas);
 
+canvas.addEventListener('touchstart', handleTouchStart, { passive: false });
+canvas.addEventListener('touchmove', handleTouchMove, { passive: false });
+canvas.addEventListener('touchend', handleTouchEnd, { passive: false });
+canvas.addEventListener('touchcancel', handleTouchEnd, { passive: false });
+
 // Mobile-Erkennung (wird erst bei erstem Touch-Event aktiv)
 let isMobile = false;
 
@@ -85,11 +90,15 @@ const player = {
     x: CANVAS_WIDTH / 2,
     y: CANVAS_HEIGHT / 2,
     size: 20,
-    speed: 5,
+    speed: 3.2,
     color: '#40e0d0',
     health: 100,
     maxHealth: 100,
     angle: 0,
+    vx: 0,
+    vy: 0,
+    xpMultiplier: 1.0,
+    multishot: false,
     // XP & Level
     level: 1,
     xp: 0,
@@ -99,6 +108,7 @@ const player = {
     speedMultiplier: 1.0,
     fireRateMultiplier: 1.0,
     bulletSpeedMultiplier: 1.0,
+    projectileMultiplier: 1.0,
     lifesteal: 0 // 0 = kein Lebensraub, 0.005 = 0.5%
 };
 
@@ -113,6 +123,24 @@ let bullets = [];
 let enemies = [];
 let particles = [];
 let xpCrystals = [];
+let chests = [];
+let minibossSpawned = false;
+let currentChest = null;
+let chestSelectedOption = null;
+let chestHoveredOption = null;
+
+const CHEST_OPTIONS = [
+    {
+        id: 'multishot',
+        title: 'Multishot',
+        description: 'Verdoppelt deine Projektilanzahl pro Schuss dauerhaft.'
+    },
+    {
+        id: 'double',
+        title: 'Giga-Schaden',
+        description: 'Verdoppelt deinen Schaden dauerhaft.'
+    }
+];
 
 // ===== MAUS =====
 let mouseX = CANVAS_WIDTH / 2;
@@ -123,6 +151,7 @@ let mouseDown = false;
 let hoveredButton = null; // 'start', 'options', 'character', 'weapon'
 let hoveredCharIndex = -1;
 let hoveredWeaponIndex = -1;
+let levelUpHoveredOption = -1;
 
 // ===== CHARAKTER-BILD =====
 const charImage_waffenspezialist = new Image();
@@ -131,11 +160,13 @@ charImage_waffenspezialist.src = 'assets/waffenspezialist.png';
 // ===== SPIEL-VARIABLEN =====
 let score = 0;
 let difficultyLevel = 1;
-let enemyBaseSpeed = 1.2;
+let enemyBaseSpeed = 0.9;
 let spawnInterval = 2000;
 let spawnTimerId = null;
 let gridOffsetX = 0;
 let gridOffsetY = 0;
+let cameraX = 0;
+let cameraY = 0;
 let lastShotTime = 0;
 let menuParticles = [];
 
@@ -143,9 +174,97 @@ let menuParticles = [];
 let gameTime = 0; // in Sekunden
 let lastTimerUpdate = 0;
 
+// ===== AUDIO (Web Audio API) =====
+let audioCtx = null;
+let masterGain = null;
+function ensureAudio() {
+    if (audioCtx) return;
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    masterGain = audioCtx.createGain();
+    masterGain.gain.value = 0.7;
+    masterGain.connect(audioCtx.destination);
+}
+
+function playSynth({ frequency = 440, type = 'square', duration = 0.12, volume = 0.5, attack = 0.005, decay = 0.08, detune = 0 } = {}) {
+    ensureAudio();
+    const now = audioCtx.currentTime;
+    const o = audioCtx.createOscillator();
+    const g = audioCtx.createGain();
+    o.type = type;
+    o.frequency.setValueAtTime(frequency, now);
+    o.detune.value = detune;
+    g.gain.setValueAtTime(0.0001, now);
+    g.gain.linearRampToValueAtTime(volume, now + attack);
+    g.gain.exponentialRampToValueAtTime(0.0001, now + duration + decay);
+    o.connect(g);
+    g.connect(masterGain);
+    o.start(now);
+    o.stop(now + duration + decay + 0.02);
+}
+
+function playNoise({ duration = 0.3, volume = 0.6, filterFreq = 1200 } = {}) {
+    ensureAudio();
+    const now = audioCtx.currentTime;
+    const bufferSize = Math.floor(audioCtx.sampleRate * duration);
+    const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) data[i] = (Math.random() * 2 - 1) * 0.5;
+    const src = audioCtx.createBufferSource();
+    src.buffer = buffer;
+    const f = audioCtx.createBiquadFilter();
+    f.type = 'bandpass';
+    f.frequency.setValueAtTime(filterFreq, now);
+    const g = audioCtx.createGain();
+    g.gain.setValueAtTime(volume, now);
+    src.connect(f);
+    f.connect(g);
+    g.connect(masterGain);
+    src.start(now);
+    src.stop(now + duration + 0.02);
+}
+
+// Convenience sounds
+function playShootSound() {
+    // short bright blip
+    playSynth({ frequency: 1200 + Math.random() * 200, type: 'square', duration: 0.06, volume: 0.25, attack: 0.002, decay: 0.03 });
+}
+
+function playEnemyDeathSound() {
+    // snappy noise + drop
+    playNoise({ duration: 0.12, volume: 0.35, filterFreq: 900 });
+    setTimeout(() => playSynth({ frequency: 400 + Math.random() * 200, type: 'triangle', duration: 0.18, volume: 0.22, decay: 0.08 }), 20);
+}
+
+function playXpSound() {
+    playSynth({ frequency: 900 + Math.random() * 300, type: 'sine', duration: 0.12, volume: 0.18, decay: 0.06 });
+}
+
+function playChestOpenSound() {
+    // arpeggio-like stack
+    playSynth({ frequency: 1000, type: 'sawtooth', duration: 0.12, volume: 0.28, decay: 0.06 });
+    setTimeout(() => playSynth({ frequency: 1400, type: 'sawtooth', duration: 0.12, volume: 0.22, decay: 0.06 }), 70);
+    setTimeout(() => playSynth({ frequency: 1800, type: 'sine', duration: 0.18, volume: 0.26, decay: 0.12 }), 140);
+}
+
+function playLevelUpSound() {
+    try {
+        ensureAudio();
+        const sequence = [900, 1080, 1260, 1440];
+        sequence.forEach((freq, index) => {
+            setTimeout(() => {
+                playSynth({ frequency: freq, type: 'square', duration: 0.1, volume: 0.3, decay: 0.05 });
+            }, index * 70);
+        });
+    } catch (err) {
+        // ignore audio errors
+    }
+}
+
 // ===== LEVEL-UP =====
 let levelUpOptions = [];
 let levelUpSelected = false;
+let levelUpSelectedOption = -1;
+let levelUpHoveredContinue = false;
 
 // ===== TOUCH-STEUERUNG =====
 let touchJoystickActive = false;
@@ -243,6 +362,14 @@ function isInsideMenuBtn(tx, ty) {
     return Math.sqrt(dx*dx + dy*dy) < menuBtnRadius;
 }
 
+function isInsideOptionsBack(tx, ty) {
+    // Large touch area top-left
+    const bx = 20;
+    const by = 20;
+    const bw = 160;
+    const bh = 52;
+    return tx >= bx && tx <= bx + bw && ty >= by && ty <= by + bh;
+}
 function isInsidePauseBtn(tx, ty, btn) {
     const bx = btn.x();
     const by = btn.y();
@@ -357,6 +484,12 @@ function generateLevelUpOptions() {
             baseValue: 0.15,
             apply: (mult) => { player.bulletSpeedMultiplier += 0.15 * mult; }
         }
+        ,
+        {
+            baseName: 'XP-Booster',
+            baseValue: 0.15,
+            apply: (mult) => { player.xpMultiplier += 0.15 * mult; }
+        }
     ];
 
     // 3 zufällige auswählen
@@ -384,8 +517,15 @@ function generateLevelUpOptions() {
         let suffix = '%';
         if (upg.baseName.includes('Max-Leben')) suffix = '';
 
+        let displayNameStr;
+        if (upg.baseName.includes('XP-Booster')) {
+            displayNameStr = `${upg.baseName} (${displayValue}%)`;
+        } else {
+            displayNameStr = upg.baseName.replace(/\d+%/, displayValue + suffix).replace(/\d+/, displayValue);
+        }
+
         return {
-            displayName: upg.baseName.replace(/\d+%/, displayValue + suffix).replace(/\d+/, displayValue),
+            displayName: displayNameStr,
             rarity: rarity,
             apply: () => upg.apply(mult)
         };
@@ -398,6 +538,7 @@ function applyLevelUp(index) {
     player.level++;
     player.xp = 0;
     player.xpToNext = Math.floor(50 * Math.pow(1.25, player.level - 1));
+    levelUpSelectedOption = -1;
     gameState = 'PLAYING';
 }
 
@@ -405,15 +546,69 @@ function applyLevelUp(index) {
 function handleTouchStart(e) {
     e.preventDefault();
     isMobile = true;
+    const rect = canvas.getBoundingClientRect();
 
     if (gameState === 'MAIN_MENU') {
         for (let i = 0; i < e.changedTouches.length; i++) {
             const touch = e.changedTouches[i];
-            if (isInsideStartBtn(touch.clientX, touch.clientY)) {
+            const tx = touch.clientX - rect.left;
+            const ty = touch.clientY - rect.top;
+            if (isInsideStartBtn(tx, ty)) {
                 goToCharSelect();
                 return;
             }
-            if (isInsideOptionsBtn(touch.clientX, touch.clientY)) {
+            if (isInsideOptionsBtn(tx, ty)) {
+                gameState = 'OPTIONS';
+                return;
+            }
+        }
+        return;
+    }
+
+    if (gameState === 'CHEST_OPEN') {
+        const optW = Math.min(380, CANVAS_WIDTH * 0.4);
+        const optH = 110;
+        const gap = 40;
+        const leftX = CANVAS_WIDTH / 2 - optW - gap / 2;
+        const rightX = CANVAS_WIDTH / 2 + gap / 2;
+        const optY = 240;
+        const leftRect = { x: leftX - 10, y: optY - 5, w: optW + 20, h: optH + 10 };
+        const rightRect = { x: rightX - 10, y: optY - 5, w: optW + 20, h: optH + 10 };
+        const bw = 260;
+        const bh = 64;
+        const bx = CANVAS_WIDTH / 2 - bw / 2;
+        const by = CANVAS_HEIGHT - 150;
+
+        for (let i = 0; i < e.changedTouches.length; i++) {
+            const touch = e.changedTouches[i];
+            const tx = touch.clientX - rect.left;
+            const ty = touch.clientY - rect.top;
+
+            if (tx >= leftRect.x && tx <= leftRect.x + leftRect.w &&
+                ty >= leftRect.y && ty <= leftRect.y + leftRect.h) {
+                chestSelectedOption = 'multishot';
+                return;
+            }
+
+            if (tx >= rightRect.x && tx <= rightRect.x + rightRect.w &&
+                ty >= rightRect.y && ty <= rightRect.y + rightRect.h) {
+                chestSelectedOption = 'double';
+                return;
+            }
+
+            if (tx >= bx && tx <= bx + bw &&
+                ty >= by && ty <= by + bh) {
+                if (!chestSelectedOption) return;
+                if (chestSelectedOption === 'multishot') {
+                    player.projectileMultiplier *= 2;
+                } else if (chestSelectedOption === 'double') {
+                    player.damageMultiplier *= 2;
+                }
+                chests = chests.filter(c => !c.opened);
+                currentChest = null;
+                chestSelectedOption = null;
+                chestHoveredOption = null;
+                gameState = 'PLAYING';
                 return;
             }
         }
@@ -423,7 +618,9 @@ function handleTouchStart(e) {
     if (gameState === 'CHAR_SELECT') {
         for (let i = 0; i < e.changedTouches.length; i++) {
             const touch = e.changedTouches[i];
-            if (isInsideCharacterCard(touch.clientX, touch.clientY, 0)) {
+            const tx = touch.clientX - rect.left;
+            const ty = touch.clientY - rect.top;
+            if (isInsideCharacterCard(tx, ty, 0)) {
                 selectCharacter(0);
                 return;
             }
@@ -434,8 +631,8 @@ function handleTouchStart(e) {
     if (gameState === 'WEAPON_SELECT') {
         for (let i = 0; i < e.changedTouches.length; i++) {
             const touch = e.changedTouches[i];
-            const tx = touch.clientX;
-            const ty = touch.clientY;
+            const tx = touch.clientX - rect.left;
+            const ty = touch.clientY - rect.top;
             const classes = [CLASSES.SNIPER, CLASSES.MACHINEGUN, CLASSES.SHOTGUN];
             const cardWidth = Math.min(220, (CANVAS_WIDTH - 80) / 3);
             const cardHeight = Math.min(260, CANVAS_HEIGHT * 0.45);
@@ -455,10 +652,26 @@ function handleTouchStart(e) {
         return;
     }
 
-    if (gameState === 'MENU' || gameState === 'WEAPON_SELECT') {
+    if (gameState === 'OPTIONS') {
         for (let i = 0; i < e.changedTouches.length; i++) {
             const touch = e.changedTouches[i];
-            const klasse = getClassAtPosition(touch.clientX, touch.clientY);
+            const tx = touch.clientX - rect.left;
+            const ty = touch.clientY - rect.top;
+            if (isInsideOptionsBack(tx, ty)) {
+                gameState = 'MAIN_MENU';
+                initMainMenuParticles();
+                return;
+            }
+        }
+        return;
+    }
+
+    if (gameState === 'MENU') {
+        for (let i = 0; i < e.changedTouches.length; i++) {
+            const touch = e.changedTouches[i];
+            const tx = touch.clientX - rect.left;
+            const ty = touch.clientY - rect.top;
+            const klasse = getClassAtPosition(tx, ty);
             if (klasse) {
                 startGame(klasse);
                 return;
@@ -470,8 +683,8 @@ function handleTouchStart(e) {
     if (gameState === 'LEVEL_UP') {
         for (let i = 0; i < e.changedTouches.length; i++) {
             const touch = e.changedTouches[i];
-            const tx = touch.clientX;
-            const ty = touch.clientY;
+            const tx = touch.clientX - rect.left;
+            const ty = touch.clientY - rect.top;
             const cardW = Math.min(220, (CANVAS_WIDTH - 80) / 3);
             const cardH = Math.min(200, CANVAS_HEIGHT * 0.35);
             const gap = Math.min(30, (CANVAS_WIDTH - 3 * cardW) / 4);
@@ -482,9 +695,21 @@ function handleTouchStart(e) {
             for (let j = 0; j < 3; j++) {
                 const cx = startX + j * (cardW + gap);
                 if (tx >= cx && tx <= cx + cardW && ty >= cardY && ty <= cardY + cardH) {
-                    applyLevelUp(j);
+                    levelUpSelectedOption = j;
                     return;
                 }
+            }
+
+            // Check "Weiter" button
+            const bw = 260;
+            const bh = 64;
+            const bx = CANVAS_WIDTH / 2 - bw / 2;
+            const by = CANVAS_HEIGHT - 100;
+            if (tx >= bx && tx <= bx + bw && ty >= by && ty <= by + bh) {
+                if (levelUpSelectedOption >= 0) {
+                    applyLevelUp(levelUpSelectedOption);
+                }
+                return;
             }
         }
         return;
@@ -493,8 +718,8 @@ function handleTouchStart(e) {
     if (gameState === 'PAUSED') {
         for (let i = 0; i < e.changedTouches.length; i++) {
             const touch = e.changedTouches[i];
-            const tx = touch.clientX;
-            const ty = touch.clientY;
+            const tx = touch.clientX - rect.left;
+            const ty = touch.clientY - rect.top;
             if (isInsidePauseBtn(tx, ty, pauseContinueBtn)) {
                 gameState = 'PLAYING';
                 return;
@@ -509,30 +734,52 @@ function handleTouchStart(e) {
         return;
     }
 
+    if (gameState === 'GAMEOVER') {
+        for (let i = 0; i < e.changedTouches.length; i++) {
+            const touch = e.changedTouches[i];
+            const tx = touch.clientX - rect.left;
+            const ty = touch.clientY - rect.top;
+            const btnX = CANVAS_WIDTH / 2 - 120;
+            const btnY = CANVAS_HEIGHT / 2 + 110;
+            const btnW = 240;
+            const btnH = 52;
+            if (tx >= btnX && tx <= btnX + btnW && ty >= btnY && ty <= btnY + btnH) {
+                gameState = 'MAIN_MENU';
+                resetGameState();
+                initMainMenuParticles();
+                return;
+            }
+        }
+        return;
+    }
+
     for (let i = 0; i < e.changedTouches.length; i++) {
         const touch = e.changedTouches[i];
-        const tx = touch.clientX;
-        const ty = touch.clientY;
+        const tx = touch.clientX - rect.left;
+        const ty = touch.clientY - rect.top;
 
         if (isInsideMenuBtn(tx, ty)) {
             gameState = 'PAUSED';
             continue;
         }
 
-        const fdx = tx - fireBtnCenterX();
-        const fdy = ty - fireBtnCenterY();
-        if (Math.sqrt(fdx*fdx + fdy*fdy) < fireBtnRadius) {
-            touchFireActive = true;
-            touchFireId = touch.identifier;
-            touchFireAngle = player.angle;
-            touchShoot();
+        // Right side touch = aiming only (no manual fire button)
+        if (!isInsideJoystickArea(tx, ty) && !isInsideMenuBtn(tx, ty)) {
+            // Use touch position to set aiming direction (right side)
+            const dx = tx - CANVAS_WIDTH / 2;
+            const dy = ty - CANVAS_HEIGHT / 2;
+            const len = Math.sqrt(dx * dx + dy * dy);
+            if (len > 10) {
+                player.angle = Math.atan2(dy, dx);
+            }
             continue;
         }
 
-        if (tx < CANVAS_WIDTH / 2 && ty > CANVAS_HEIGHT / 2) {
+        if (isInsideJoystickArea(tx, ty)) {
             touchJoystickActive = true;
             touchJoystickId = touch.identifier;
             updateJoystickPosition(tx, ty);
+            setJoystickDirection(tx, ty);
             continue;
         }
     }
@@ -540,17 +787,27 @@ function handleTouchStart(e) {
 
 function handleTouchMove(e) {
     e.preventDefault();
+    const rect = canvas.getBoundingClientRect();
     for (let i = 0; i < e.changedTouches.length; i++) {
         const touch = e.changedTouches[i];
-        const tx = touch.clientX;
-        const ty = touch.clientY;
+        const tx = touch.clientX - rect.left;
+        const ty = touch.clientY - rect.top;
 
         if (touch.identifier === touchJoystickId) {
             updateJoystickPosition(tx, ty);
+            setJoystickDirection(tx, ty);
         }
 
-        if (touch.identifier === touchFireId) {
-            touchFireAngle = player.angle;
+        // Right side touch move = update aiming direction
+        if (touch.identifier !== touchJoystickId) {
+            if (!isInsideJoystickArea(tx, ty)) {
+                const dx = tx - CANVAS_WIDTH / 2;
+                const dy = ty - CANVAS_HEIGHT / 2;
+                const len = Math.sqrt(dx * dx + dy * dy);
+                if (len > 10) {
+                    player.angle = Math.atan2(dy, dx);
+                }
+            }
         }
     }
 }
@@ -566,11 +823,8 @@ function handleTouchEnd(e) {
             touchJoystickId = -1;
             touchJoystickX = 0;
             touchJoystickY = 0;
-        }
-
-        if (touch.identifier === touchFireId) {
-            touchFireActive = false;
-            touchFireId = -1;
+            player.vx = 0;
+            player.vy = 0;
         }
     }
 }
@@ -590,6 +844,29 @@ function updateJoystickPosition(tx, ty) {
     }
 }
 
+function setJoystickDirection(tx, ty) {
+    const dx = tx - joystickCenterX();
+    const dy = ty - joystickCenterY();
+    const len = Math.sqrt(dx * dx + dy * dy);
+    if (len > 8) {
+        player.vx = dx / len;
+        player.vy = dy / len;
+    } else {
+        player.vx = 0;
+        player.vy = 0;
+    }
+}
+
+function isInsideJoystickArea(tx, ty) {
+    return tx <= CANVAS_WIDTH * 0.45 && ty >= CANVAS_HEIGHT * 0.45;
+}
+
+function isInsideFireButton(tx, ty) {
+    const dx = tx - fireBtnCenterX();
+    const dy = ty - fireBtnCenterY();
+    return Math.sqrt(dx * dx + dy * dy) < fireBtnRadius;
+}
+
 function touchShoot() {
     if (gameState !== 'PLAYING' || !selectedClass) return;
     if (!touchFireActive) return;
@@ -605,12 +882,6 @@ function touchShoot() {
 
     fireBullet(dx, dy);
 }
-
-setInterval(() => {
-    if (isMobile && touchFireActive && gameState === 'PLAYING') {
-        touchShoot();
-    }
-}, 50);
 
 // ===== TASTATUR-EVENTS =====
 window.addEventListener('keydown', (e) => {
@@ -634,6 +905,7 @@ window.addEventListener('keydown', (e) => {
 
     if (key === 'r' && gameState === 'GAMEOVER') {
         gameState = 'MAIN_MENU';
+        resetGameState();
         initMainMenuParticles();
         return;
     }
@@ -716,10 +988,65 @@ canvas.addEventListener('mousemove', (e) => {
                 break;
             }
         }
+        chestHoveredOption = null;
+    } else if (gameState === 'LEVEL_UP') {
+        levelUpHoveredOption = -1;
+        levelUpHoveredContinue = false;
+        const cardW = Math.min(220, (CANVAS_WIDTH - 80) / 3);
+        const cardH = Math.min(200, CANVAS_HEIGHT * 0.35);
+        const gap = Math.min(30, (CANVAS_WIDTH - 3 * cardW) / 4);
+        const totalW = 3 * cardW + 2 * gap;
+        const startX = (CANVAS_WIDTH - totalW) / 2;
+        const cardY = CANVAS_HEIGHT / 2 - cardH / 2 + 30;
+
+        for (let i = 0; i < 3; i++) {
+            const cx = startX + i * (cardW + gap);
+            if (mouseX >= cx && mouseX <= cx + cardW && mouseY >= cardY && mouseY <= cardY + cardH) {
+                levelUpHoveredOption = i;
+                break;
+            }
+        }
+
+        // Check "Weiter" button hover
+        const bw = 260;
+        const bh = 64;
+        const bx = CANVAS_WIDTH / 2 - bw / 2;
+        const by = CANVAS_HEIGHT - 100;
+        if (mouseX >= bx && mouseX <= bx + bw && mouseY >= by && mouseY <= by + bh) {
+            levelUpHoveredContinue = true;
+        }
+        chestHoveredOption = null;
+    } else if (gameState === 'CHEST_OPEN') {
+        chestHoveredOption = null;
+        const optW = Math.min(380, CANVAS_WIDTH * 0.4);
+        const optH = 110;
+        const gap = 40;
+        const leftX = CANVAS_WIDTH / 2 - optW - gap / 2;
+        const rightX = CANVAS_WIDTH / 2 + gap / 2;
+        const optY = 240;
+        const leftRect = { x: leftX - 10, y: optY - 5, w: optW + 20, h: optH + 10 };
+        const rightRect = { x: rightX - 10, y: optY - 5, w: optW + 20, h: optH + 10 };
+        const bw = 260;
+        const bh = 64;
+        const bx = CANVAS_WIDTH / 2 - bw / 2;
+        const by = CANVAS_HEIGHT - 150;
+
+        if (mouseX >= leftRect.x && mouseX <= leftRect.x + leftRect.w &&
+            mouseY >= leftRect.y && mouseY <= leftRect.y + leftRect.h) {
+            chestHoveredOption = 'multishot';
+        } else if (mouseX >= rightRect.x && mouseX <= rightRect.x + rightRect.w &&
+                   mouseY >= rightRect.y && mouseY <= rightRect.y + rightRect.h) {
+            chestHoveredOption = 'double';
+        } else if (mouseX >= bx && mouseX <= bx + bw &&
+                   mouseY >= by && mouseY <= by + bh) {
+            chestHoveredOption = 'continue';
+        }
     } else {
         hoveredButton = null;
         hoveredCharIndex = -1;
         hoveredWeaponIndex = -1;
+        levelUpHoveredOption = -1;
+        chestHoveredOption = null;
     }
 });
 
@@ -791,16 +1118,101 @@ canvas.addEventListener('click', (e) => {
         for (let j = 0; j < 3; j++) {
             const cx = startX + j * (cardW + gap);
             if (clickX >= cx && clickX <= cx + cardW && clickY >= cardY && clickY <= cardY + cardH) {
-                applyLevelUp(j);
+                levelUpSelectedOption = j;
                 return;
             }
+        }
+
+        // Check "Weiter" button
+        const bw = 260;
+        const bh = 64;
+        const bx = CANVAS_WIDTH / 2 - bw / 2;
+        const by = CANVAS_HEIGHT - 100;
+        if (clickX >= bx && clickX <= bx + bw && clickY >= by && clickY <= by + bh) {
+            if (levelUpSelectedOption >= 0) {
+                applyLevelUp(levelUpSelectedOption);
+            }
+            return;
         }
         return;
     }
 
     if (gameState === 'PAUSED') {
-        if (isInsidePauseBtn(clickX, clickY, pauseContinueBtn)) { gameState = 'PLAYING'; return; }
-        if (isInsidePauseBtn(clickX, clickY, pauseMenuBtn)) { gameState = 'MAIN_MENU'; resetGameState(); initMainMenuParticles(); return; }
+        if (isInsidePauseBtn(clickX, clickY, pauseContinueBtn)) {
+            gameState = 'PLAYING';
+            return;
+        }
+        if (isInsidePauseBtn(clickX, clickY, pauseMenuBtn)) {
+            gameState = 'MAIN_MENU';
+            resetGameState();
+            initMainMenuParticles();
+            return;
+        }
+        return;
+    }
+
+    if (gameState === 'CHEST_OPEN') {
+        const optW = Math.min(380, CANVAS_WIDTH * 0.4);
+        const optH = 110;
+        const gap = 40;
+        const leftX = CANVAS_WIDTH / 2 - optW - gap / 2;
+        const rightX = CANVAS_WIDTH / 2 + gap / 2;
+        const optY = 240;
+        const leftRect = { x: leftX - 10, y: optY - 5, w: optW + 20, h: optH + 10 };
+        const rightRect = { x: rightX - 10, y: optY - 5, w: optW + 20, h: optH + 10 };
+        const bw = 260;
+        const bh = 64;
+        const bx = CANVAS_WIDTH / 2 - bw / 2;
+        const by = CANVAS_HEIGHT - 150;
+
+        if (clickX >= leftRect.x && clickX <= leftRect.x + leftRect.w &&
+            clickY >= leftRect.y && clickY <= leftRect.y + leftRect.h) {
+            chestSelectedOption = 'multishot';
+            return;
+        }
+        if (clickX >= rightRect.x && clickX <= rightRect.x + rightRect.w &&
+            clickY >= rightRect.y && clickY <= rightRect.y + rightRect.h) {
+            chestSelectedOption = 'double';
+            return;
+        }
+        if (clickX >= bx && clickX <= bx + bw &&
+            clickY >= by && clickY <= by + bh) {
+            if (!chestSelectedOption) return;
+            if (chestSelectedOption === 'multishot') {
+                player.projectileMultiplier *= 2;
+            } else if (chestSelectedOption === 'double') {
+                player.damageMultiplier *= 2;
+            }
+            chests = chests.filter(c => !c.opened);
+            currentChest = null;
+            chestSelectedOption = null;
+            chestHoveredOption = null;
+            gameState = 'PLAYING';
+            return;
+        }
+        return;
+    }
+
+    if (gameState === 'OPTIONS') {
+        if (isInsideOptionsBack(clickX, clickY)) {
+            gameState = 'MAIN_MENU';
+            initMainMenuParticles();
+            return;
+        }
+        return;
+    }
+
+    if (gameState === 'GAMEOVER') {
+        const btnX = CANVAS_WIDTH / 2 - 120;
+        const btnY = CANVAS_HEIGHT / 2 + 110;
+        const btnW = 240;
+        const btnH = 52;
+        if (clickX >= btnX && clickX <= btnX + btnW && clickY >= btnY && clickY <= btnY + btnH) {
+            gameState = 'MAIN_MENU';
+            resetGameState();
+            initMainMenuParticles();
+            return;
+        }
         return;
     }
 
@@ -814,8 +1226,8 @@ canvas.addEventListener('click', (e) => {
     if (now - lastShotTime < selectedClass.fireRate * player.fireRateMultiplier) return;
     lastShotTime = now;
 
-    const dx = clickX - player.x;
-    const dy = clickY - player.y;
+    const dx = clickX - CANVAS_WIDTH / 2;
+    const dy = clickY - CANVAS_HEIGHT / 2;
     const length = Math.sqrt(dx * dx + dy * dy);
     if (length === 0) return;
 
@@ -825,81 +1237,85 @@ canvas.addEventListener('click', (e) => {
 // ===== GEMEINSAME SCHUSS-FUNKTION =====
 function fireBullet(dirX, dirY) {
     if (!selectedClass) return;
-    const dmg = Math.round(selectedClass.damage * player.damageMultiplier);
+
+    const mult = Number(player.projectileMultiplier) || 1;
+    const basePellets = Number(selectedClass.pellets) || 1;
+    const finalCount = Math.max(1, Math.round(basePellets * mult));
+    const dmg = Math.round((Number(selectedClass.damage) || 0) * (Number(player.damageMultiplier) || 1));
+    const bulletSize = Number(selectedClass.bulletSize) || 4;
+    const bulletSpeed = Number(selectedClass.bulletSpeed) || 10;
+
+    try { playShootSound(); } catch (e) { /* ignore */ }
 
     if (selectedClass.id === 1) {
-        bullets.push({
-            x: player.x - selectedClass.bulletSize,
-            y: player.y - selectedClass.bulletSize,
-            size: selectedClass.bulletSize * 2,
-            vx: dirX * selectedClass.bulletSpeed,
-            vy: dirY * selectedClass.bulletSpeed,
-            damage: dmg,
-            piercing: true,
-            color: '#ff88ff',
-            glow: '#ff00ff',
-            startX: player.x,
-            startY: player.y
-        });
+        const baseAngle = Math.atan2(dirY, dirX);
+        const spread = 0.04;
+
+        for (let i = 0; i < finalCount; i++) {
+            const offset = (i - (finalCount - 1) / 2) * spread;
+            const angle = baseAngle + offset;
+            bullets.push({
+                x: player.x - bulletSize,
+                y: player.y - bulletSize,
+                size: bulletSize * 2,
+                vx: Math.cos(angle) * bulletSpeed,
+                vy: Math.sin(angle) * bulletSpeed,
+                damage: dmg,
+                piercing: true,
+                color: '#ff88ff',
+                glow: '#ff00ff',
+                startX: player.x,
+                startY: player.y,
+                life: 300
+            });
+        }
+
     } else if (selectedClass.id === 2) {
-        bullets.push({
-            x: player.x - selectedClass.bulletSize,
-            y: player.y - selectedClass.bulletSize,
-            size: selectedClass.bulletSize * 2,
-            vx: dirX * selectedClass.bulletSpeed + (Math.random() - 0.5) * 1.5,
-            vy: dirY * selectedClass.bulletSpeed + (Math.random() - 0.5) * 1.5,
-            damage: dmg,
-            piercing: false,
-            color: '#ffff00',
-            glow: '#ffaa00',
-            startX: player.x,
-            startY: player.y
-        });
+        for (let i = 0; i < finalCount; i++) {
+            bullets.push({
+                x: player.x - bulletSize,
+                y: player.y - bulletSize,
+                size: bulletSize * 2,
+                vx: dirX * bulletSpeed + (Math.random() - 0.5) * 1.5 + (i - (finalCount - 1) / 2) * 0.6,
+                vy: dirY * bulletSpeed + (Math.random() - 0.5) * 1.5 + (i - (finalCount - 1) / 2) * 0.6,
+                damage: dmg,
+                piercing: false,
+                color: '#ffff00',
+                glow: '#ffaa00',
+                startX: player.x,
+                startY: player.y,
+                life: 300
+            });
+        }
+
     } else if (selectedClass.id === 3) {
-        const pellets = selectedClass.pellets;
-        const spread = selectedClass.spreadAngle;
+        const spread = Number(selectedClass.spreadAngle) || 0.6;
         const baseAngle = Math.atan2(dirY, dirX);
 
-        for (let i = 0; i < pellets; i++) {
-            const offset = (i / (pellets - 1) - 0.5) * spread;
+        for (let i = 0; i < finalCount; i++) {
+            const offset = finalCount > 1 ? (i / (finalCount - 1) - 0.5) * spread : 0;
             const angle = baseAngle + offset;
-            const spd = selectedClass.bulletSpeed * (0.85 + Math.random() * 0.3);
-
+            const spd = bulletSpeed * (0.85 + Math.random() * 0.3);
             bullets.push({
-                x: player.x - selectedClass.bulletSize,
-                y: player.y - selectedClass.bulletSize,
-                size: selectedClass.bulletSize * 2,
+                x: player.x - bulletSize,
+                y: player.y - bulletSize,
+                size: bulletSize * 2,
                 vx: Math.cos(angle) * spd,
                 vy: Math.sin(angle) * spd,
                 damage: dmg,
                 piercing: false,
-                maxRange: selectedClass.maxRange,
+                maxRange: Number(selectedClass.maxRange) || 300,
                 color: '#ffaa44',
                 glow: '#ff4400',
                 startX: player.x,
-                startY: player.y
+                startY: player.y,
+                life: 300
             });
         }
     }
 }
 
-// ===== MASCHINENGEWEHR: Dauerfeuer bei gedrückter Maustaste =====
-setInterval(() => {
-    if (isMobile) return;
-    if (gameState !== 'PLAYING' || !selectedClass || selectedClass.id !== 2) return;
-    if (!mouseDown) return;
 
-    const now = Date.now();
-    if (now - lastShotTime < selectedClass.fireRate * player.fireRateMultiplier) return;
-    lastShotTime = now;
-
-    const dx = mouseX - player.x;
-    const dy = mouseY - player.y;
-    const length = Math.sqrt(dx * dx + dy * dy);
-    if (length === 0) return;
-
-    fireBullet(dx / length, dy / length);
-}, 50);
 
 // ===== SPIEL STARTEN =====
 function startGame(klasse) {
@@ -924,10 +1340,14 @@ function resetGameState() {
     player.level = 1;
     player.xp = 0;
     player.xpToNext = 50;
+    player.vx = 0;
+    player.vy = 0;
     player.damageMultiplier = 1.0;
     player.speedMultiplier = 1.0;
     player.fireRateMultiplier = 1.0;
     player.bulletSpeedMultiplier = 1.0;
+    player.projectileMultiplier = 1.0;
+    player.xpMultiplier = 1.0;
     player.lifesteal = 0;
     bullets = [];
     enemies = [];
@@ -936,6 +1356,7 @@ function resetGameState() {
     score = 0;
     difficultyLevel = 1;
     enemyBaseSpeed = 1.2;
+    minibossSpawned = false;
     gridOffsetX = 0;
     gridOffsetY = 0;
     gameTime = 0;
@@ -950,6 +1371,10 @@ function resetPlayerPosition() {
     player.x = CANVAS_WIDTH / 2;
     player.y = CANVAS_HEIGHT / 2;
     player.angle = 0;
+    cameraX = player.x;
+    cameraY = player.y;
+    gridOffsetX = cameraX;
+    gridOffsetY = cameraY;
 }
 
 // ===== GEGNER SPAWNEN =====
@@ -957,24 +1382,95 @@ function spawnEnemy() {
     if (gameState !== 'PLAYING') return;
 
     const size = 22;
-    const speed = enemyBaseSpeed + (difficultyLevel - 1) * 0.3;
+    const baseSpeed = enemyBaseSpeed + (difficultyLevel - 1) * 0.18;
     let x, y;
     const side = Math.floor(Math.random() * 4);
 
     switch (side) {
-        case 0: x = Math.random() * CANVAS_WIDTH; y = -size; break;
-        case 1: x = CANVAS_WIDTH + size; y = Math.random() * CANVAS_HEIGHT; break;
-        case 2: x = Math.random() * CANVAS_WIDTH; y = CANVAS_HEIGHT + size; break;
-        case 3: x = -size; y = Math.random() * CANVAS_HEIGHT; break;
+        case 0: x = cameraX - CANVAS_WIDTH / 2 + Math.random() * CANVAS_WIDTH; y = cameraY - size - 20; break;
+        case 1: x = cameraX + CANVAS_WIDTH / 2 + size + 20; y = cameraY - CANVAS_HEIGHT / 2 + Math.random() * CANVAS_HEIGHT; break;
+        case 2: x = cameraX - CANVAS_WIDTH / 2 + Math.random() * CANVAS_WIDTH; y = cameraY + CANVAS_HEIGHT / 2 + size + 20; break;
+        case 3: x = cameraX - CANVAS_WIDTH / 2 - size - 20; y = cameraY - CANVAS_HEIGHT / 2 + Math.random() * CANVAS_HEIGHT; break;
+    }
+
+    // Ensure enemy does not spawn too close to the player (safe radius)
+    const safeRadius = 300;
+    let attempts = 0;
+    while (attempts < 8) {
+        const dxp = x - player.x;
+        const dyp = y - player.y;
+        const dist = Math.sqrt(dxp * dxp + dyp * dyp);
+        if (dist >= safeRadius) break;
+        // push the spawn point away along its vector from player
+        let nx = dxp;
+        let ny = dyp;
+        const nlen = Math.sqrt(nx * nx + ny * ny) || 1;
+        nx = nx / nlen;
+        ny = ny / nlen;
+        x = player.x + nx * safeRadius + (Math.random() - 0.5) * 80;
+        y = player.y + ny * safeRadius + (Math.random() - 0.5) * 80;
+        attempts++;
+    }
+
+    // Determine enemy type based on elapsed time
+    const minute = Math.floor(gameTime / 60);
+    const possibleTypes = [];
+    // Type 1 always
+    possibleTypes.push(1);
+    if (minute >= 1) possibleTypes.push(2);
+    if (minute >= 2) possibleTypes.push(3);
+
+    const chosen = possibleTypes[Math.floor(Math.random() * possibleTypes.length)];
+
+    let etype = 'STANDARD';
+    let ecolor = '#ff3333';
+    let eglow = '#ff0000';
+    let espeed = baseSpeed;
+    let ehealth = 100;
+    let expValue = 1;
+
+    if (chosen === 1) {
+        etype = 'STANDARD';
+        ecolor = '#ff3333'; eglow = '#ff0000'; espeed = baseSpeed; ehealth = 100; expValue = 1;
+    } else if (chosen === 2) {
+        etype = 'TANK';
+        ecolor = '#ffff55'; eglow = '#ffff88'; espeed = baseSpeed * 0.45; ehealth = 500; expValue = 5;
+    } else if (chosen === 3) {
+        etype = 'RUNNER';
+        ecolor = '#ff55ff'; eglow = '#ff88ff'; espeed = baseSpeed * 1.8; ehealth = 40; expValue = 2;
     }
 
     enemies.push({
-        x, y, size, speed,
-        color: '#ff3333', glow: '#ff0000',
+        x, y, size, speed: espeed,
+        color: ecolor, glow: eglow,
         angle: Math.random() * Math.PI * 2,
         rotSpeed: (Math.random() - 0.5) * 0.03,
-        health: 100
+        health: ehealth,
+        maxHealth: ehealth,
+        type: etype,
+        xpValue: expValue
     });
+}
+
+function spawnMiniboss() {
+    if (gameState !== 'PLAYING') return;
+    const size = 22 * 4;
+    // Make miniboss much tougher: base standard enemy HP is 100, scale x50
+    const hp = 100 * 50; // 5000
+    // spawn a little outside the visible area relative to the player
+    const bx = player.x + 400;
+    const by = player.y;
+    enemies.push({
+        x: bx, y: by, size, speed: enemyBaseSpeed * 0.6,
+        color: '#aa44ff', glow: '#ff88ff',
+        angle: 0,
+        rotSpeed: 0.005,
+        health: hp,
+        maxHealth: hp,
+        type: 'MINIBOSS',
+        xpValue: 50
+    });
+    minibossSpawned = true;
 }
 
 // ===== XP-KRISTALL DROPPEN =====
@@ -985,7 +1481,8 @@ function dropXpCrystal(x, y) {
         size: 6,
         color: '#4488ff',
         glow: '#0044ff',
-        collected: false
+        collected: false,
+        value: 1
     });
 }
 
@@ -1030,11 +1527,15 @@ function update() {
             if (p.y < 0) p.y = CANVAS_HEIGHT;
             if (p.y > CANVAS_HEIGHT) p.y = 0;
         }
+        lastTimerUpdate = Date.now();
         return;
     }
 
-    if (gameState === 'PAUSED' || gameState === 'GAMEOVER' || gameState === 'LEVEL_UP') return;
-
+    if (gameState === 'PAUSED' || gameState === 'GAMEOVER' || gameState === 'LEVEL_UP' || gameState === 'CHEST_OPEN') {
+        lastTimerUpdate = Date.now();
+        return;
+    }
+ 
     // === Timer ===
     const now = Date.now();
     if (lastTimerUpdate > 0) {
@@ -1052,44 +1553,24 @@ function update() {
 
     // === Spieler-Bewegung (Touch-Joystick) ===
     if (isMobile && touchJoystickActive) {
-        const threshold = 10;
-        const jx = touchJoystickX;
-        const jy = touchJoystickY;
-        const jLen = Math.sqrt(jx*jx + jy*jy);
-
-        if (jLen > threshold) {
-            const normX = jx / jLen;
-            const normY = jy / jLen;
-            player.x += normX * currentSpeed;
-            player.y += normY * currentSpeed;
-            moving = true;
-        }
+        player.x += player.vx * currentSpeed;
+        player.y += player.vy * currentSpeed;
+        moving = (player.vx !== 0 || player.vy !== 0);
     }
 
-    // Randbegrenzung
-    if (player.x < 0) player.x = 0;
-    if (player.y < 0) player.y = 0;
-    if (player.x > CANVAS_WIDTH) player.x = CANVAS_WIDTH;
-    if (player.y > CANVAS_HEIGHT) player.y = CANVAS_HEIGHT;
+    cameraX = player.x;
+    cameraY = player.y;
+    gridOffsetX = cameraX;
+    gridOffsetY = cameraY;
 
-    if (moving) {
-        if (keys.w || keys.up || (touchJoystickActive && touchJoystickY < 0)) gridOffsetY -= 1.5;
-        if (keys.s || keys.down || (touchJoystickActive && touchJoystickY > 0)) gridOffsetY += 1.5;
-        if (keys.a || keys.left || (touchJoystickActive && touchJoystickX < 0)) gridOffsetX -= 1.5;
-        if (keys.d || keys.right || (touchJoystickActive && touchJoystickX > 0)) gridOffsetX += 1.5;
+    if (!minibossSpawned && gameState === 'PLAYING' && gameTime >= 30) {
+        spawnMiniboss();
     }
 
     // Spieler-Winkel
-    if (isMobile && touchJoystickActive) {
-        const jLen = Math.sqrt(touchJoystickX * touchJoystickX + touchJoystickY * touchJoystickY);
-        if (jLen > 10) {
-            player.angle = Math.atan2(touchJoystickY, touchJoystickX);
-            touchJoystickLastAngle = player.angle;
-        }
-    } else if (isMobile && !touchJoystickActive) {
-        player.angle = touchJoystickLastAngle;
-    } else {
-        player.angle = Math.atan2(mouseY - player.y, mouseX - player.x);
+    // On mobile, angle is set by touch events (right side aiming). Keep it.
+    if (!isMobile) {
+        player.angle = Math.atan2(mouseY - CANVAS_HEIGHT / 2, mouseX - CANVAS_WIDTH / 2);
     }
 
     // === Projektile bewegen ===
@@ -1098,15 +1579,16 @@ function update() {
         b.x += b.vx;
         b.y += b.vy;
 
-        if (b.maxRange) {
-            const dist = Math.sqrt((b.x - b.startX) ** 2 + (b.y - b.startY) ** 2);
-            if (dist > b.maxRange) { bullets.splice(i, 1); continue; }
-        }
+            if (b.maxRange) {
+                const dist = Math.sqrt((b.x - b.startX) ** 2 + (b.y - b.startY) ** 2);
+                if (dist > b.maxRange) { bullets.splice(i, 1); continue; }
+            }
 
-        if (b.x + b.size < 0 || b.x > CANVAS_WIDTH || b.y + b.size < 0 || b.y > CANVAS_HEIGHT) {
-            bullets.splice(i, 1);
-            continue;
-        }
+            b.life--;
+            if (b.life <= 0) {
+                bullets.splice(i, 1);
+                continue;
+            }
     }
 
     // === Gegner bewegen ===
@@ -1120,6 +1602,29 @@ function update() {
             e.y += (dy / length) * e.speed;
         }
         e.angle += e.rotSpeed;
+    }
+
+    // === Chest pickup check ===
+    for (let i = 0; i < chests.length; i++) {
+        const ch = chests[i];
+        if (ch.opened) continue;
+        const dx = player.x - ch.x;
+        const dy = player.y - ch.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < 30) {
+            ch.opened = true;
+            currentChest = ch;
+            chestSelectedOption = null;
+            gameState = 'CHEST_OPEN';
+            try { playChestOpenSound(); } catch (e) {}
+            // glitter particles
+            for (let p = 0; p < 24; p++) {
+                const ang = Math.random() * Math.PI * 2;
+                const spd = 2 + Math.random() * 4;
+                particles.push({ x: ch.x, y: ch.y, vx: Math.cos(ang) * spd, vy: Math.sin(ang) * spd - 0.6, size: 2 + Math.random() * 3, life: 1.2, decay: 0.02 + Math.random() * 0.03, color: '#fff9c4', glow: '#ffd700' });
+            }
+            break;
+        }
     }
 
     // === Kollision: Projektil trifft Gegner ===
@@ -1142,11 +1647,29 @@ function update() {
                 }
 
                 if (e.health <= 0) {
-                    createExplosion(e.x, e.y, 15, '#ff4444', '#ff0000', 4);
-                    createExplosion(e.x, e.y, 5, '#ffaa00', '#ff6600', 2);
-                    dropXpCrystal(e.x, e.y);
-                    enemies.splice(j, 1);
-                    score += 100;
+                    try { playEnemyDeathSound(); } catch (err) {}
+                    // Explosion effects
+                    createExplosion(e.x, e.y, 20, e.color || '#ff4444', e.glow || '#ff0000', 4);
+                    createExplosion(e.x, e.y, 6, '#ffaa00', '#ff6600', 2);
+
+                    // If miniboss: drop chest
+                    if (e.type === 'MINIBOSS') {
+                        // spawn chest at boss position
+                        chests.push({ x: e.x, y: e.y, opened: false });
+                        createExplosion(e.x, e.y, 30, '#ffdd77', '#ffd700', 6);
+                        score += 2000;
+                        enemies.splice(j, 1);
+                        bulletRemoved = true;
+                        break;
+                    } else {
+                        // drop XP crystals based on xpValue
+                        const drops = e.xpValue || 1;
+                        for (let k = 0; k < drops; k++) dropXpCrystal(e.x, e.y);
+                        enemies.splice(j, 1);
+                        score += 100 * (e.xpValue || 1);
+                        bulletRemoved = true;
+                        break;
+                    }
                 }
 
                 if (!b.piercing) {
@@ -1197,13 +1720,22 @@ function update() {
 
         if (dist < collectRadius) {
             // Eingesammelt
-            player.xp += 10;
+            player.xp += 10 * c.value * player.xpMultiplier;
+            // small sound + particles
+            try { playXpSound(); } catch (e) {}
+            for (let k = 0; k < 8; k++) {
+                const ang = Math.random() * Math.PI * 2;
+                const spd = 1 + Math.random() * 2.5;
+                particles.push({ x: c.x, y: c.y, vx: Math.cos(ang) * spd, vy: Math.sin(ang) * spd, size: Math.random() * 3 + 1, life: 1.0, decay: 0.02 + Math.random() * 0.02, color: '#88ff88', glow: '#66ff66' });
+            }
             xpCrystals.splice(i, 1);
 
             // Prüfen ob Level-Up
             if (player.xp >= player.xpToNext) {
                 gameState = 'LEVEL_UP';
                 generateLevelUpOptions();
+                levelUpSelectedOption = -1;
+                try { playLevelUpSound(); } catch (e) {}
             }
         }
     }
@@ -1227,17 +1759,20 @@ function drawGrid() {
     ctx.strokeStyle = 'rgba(255, 255, 255, 0.06)';
     ctx.lineWidth = 1;
     const gridSize = 50;
-    for (let x = gridOffsetX % gridSize; x < CANVAS_WIDTH; x += gridSize) {
+    const offsetX = ((CANVAS_WIDTH / 2 - cameraX) % gridSize + gridSize) % gridSize;
+    const offsetY = ((CANVAS_HEIGHT / 2 - cameraY) % gridSize + gridSize) % gridSize;
+
+    for (let x = offsetX; x < CANVAS_WIDTH; x += gridSize) {
         ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, CANVAS_HEIGHT); ctx.stroke();
     }
-    for (let y = gridOffsetY % gridSize; y < CANVAS_HEIGHT; y += gridSize) {
+    for (let y = offsetY; y < CANVAS_HEIGHT; y += gridSize) {
         ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(CANVAS_WIDTH, y); ctx.stroke();
     }
 }
 
 function drawPlayer() {
     ctx.save();
-    ctx.translate(player.x, player.y);
+    ctx.translate(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2);
     ctx.rotate(player.angle);
     const s = player.size;
 
@@ -1269,11 +1804,36 @@ function drawPlayer() {
 
 function drawEnemy(e) {
     ctx.save();
-    ctx.translate(e.x, e.y);
+    const drawX = e.x - cameraX + CANVAS_WIDTH / 2;
+    const drawY = e.y - cameraY + CANVAS_HEIGHT / 2;
+    ctx.translate(drawX, drawY);
     ctx.rotate(e.angle);
-    ctx.shadowBlur = 15;
-    ctx.shadowColor = '#ff0000';
     const s = e.size;
+
+    let colorStart = '#ff6666';
+    let colorMid = '#ff3333';
+    let colorEnd = '#880000';
+    let shadowColor = '#ff0000';
+
+    if (e.type === 'TANK') {
+        colorStart = '#ffff88';
+        colorMid = '#ffff00';
+        colorEnd = '#bbbb00';
+        shadowColor = '#ffff00';
+    } else if (e.type === 'RUNNER') {
+        colorStart = '#ff99ff';
+        colorMid = '#ff00ff';
+        colorEnd = '#cc00cc';
+        shadowColor = '#ff00ff';
+    } else if (e.type === 'MINIBOSS') {
+        colorStart = '#cc99ff';
+        colorMid = '#9900ff';
+        colorEnd = '#550088';
+        shadowColor = '#9900ff';
+    }
+
+    ctx.shadowBlur = 15;
+    ctx.shadowColor = shadowColor;
 
     ctx.beginPath();
     ctx.moveTo(0, -s);
@@ -1283,15 +1843,15 @@ function drawEnemy(e) {
     ctx.closePath();
 
     const grad = ctx.createRadialGradient(0, 0, 0, 0, 0, s);
-    grad.addColorStop(0, '#ff6666');
-    grad.addColorStop(0.5, '#ff3333');
-    grad.addColorStop(1, '#880000');
+    grad.addColorStop(0, colorStart);
+    grad.addColorStop(0.5, colorMid);
+    grad.addColorStop(1, colorEnd);
     ctx.fillStyle = grad;
     ctx.fill();
 
     ctx.shadowBlur = 20;
-    ctx.shadowColor = '#ff0000';
-    ctx.strokeStyle = '#ff4444';
+    ctx.shadowColor = shadowColor;
+    ctx.strokeStyle = colorMid;
     ctx.lineWidth = 1.5;
     ctx.stroke();
 
@@ -1301,11 +1861,13 @@ function drawEnemy(e) {
 
 function drawBullet(b) {
     ctx.save();
+    const drawX = b.x - cameraX + CANVAS_WIDTH / 2;
+    const drawY = b.y - cameraY + CANVAS_HEIGHT / 2;
     ctx.shadowBlur = 12;
     ctx.shadowColor = b.glow;
     ctx.fillStyle = b.color;
     ctx.beginPath();
-    ctx.arc(b.x + b.size / 2, b.y + b.size / 2, b.size / 2, 0, Math.PI * 2);
+    ctx.arc(drawX + b.size / 2, drawY + b.size / 2, b.size / 2, 0, Math.PI * 2);
     ctx.fill();
     ctx.shadowBlur = 0;
     ctx.restore();
@@ -1313,13 +1875,15 @@ function drawBullet(b) {
 
 function drawParticles() {
     for (const p of particles) {
+        const drawX = p.x - cameraX + CANVAS_WIDTH / 2;
+        const drawY = p.y - cameraY + CANVAS_HEIGHT / 2;
         ctx.save();
         ctx.globalAlpha = p.life;
         ctx.shadowBlur = 8;
         ctx.shadowColor = p.glow;
         ctx.fillStyle = p.color;
         ctx.beginPath();
-        ctx.arc(p.x, p.y, Math.max(p.size, 0.5), 0, Math.PI * 2);
+        ctx.arc(drawX, drawY, Math.max(p.size, 0.5), 0, Math.PI * 2);
         ctx.fill();
         ctx.shadowBlur = 0;
         ctx.globalAlpha = 1;
@@ -1329,19 +1893,21 @@ function drawParticles() {
 
 function drawXpCrystals() {
     for (const c of xpCrystals) {
+        const drawX = c.x - cameraX + CANVAS_WIDTH / 2;
+        const drawY = c.y - cameraY + CANVAS_HEIGHT / 2;
         ctx.save();
         ctx.shadowBlur = 12;
         ctx.shadowColor = c.glow;
         ctx.fillStyle = c.color;
         ctx.beginPath();
-        ctx.arc(c.x, c.y, c.size, 0, Math.PI * 2);
+        ctx.arc(drawX, drawY, c.size, 0, Math.PI * 2);
         ctx.fill();
 
         // Leuchtender Kern
         ctx.shadowBlur = 0;
         ctx.fillStyle = '#aaccff';
         ctx.beginPath();
-        ctx.arc(c.x, c.y, c.size * 0.4, 0, Math.PI * 2);
+        ctx.arc(drawX, drawY, c.size * 0.4, 0, Math.PI * 2);
         ctx.fill();
         ctx.restore();
     }
@@ -1828,6 +2394,49 @@ function drawMenuButton() {
     ctx.restore();
 }
 
+function drawMobileControls() {
+    const joyX = joystickCenterX();
+    const joyY = joystickCenterY();
+
+    ctx.save();
+    ctx.globalAlpha = 0.2;
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.35)';
+    ctx.lineWidth = 2;
+
+    // Left joystick (movement)
+    ctx.beginPath();
+    ctx.arc(joyX, joyY, joystickRadius, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.arc(joyX + touchJoystickX, joyY + touchJoystickY, joystickKnobRadius, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+
+    // Right side aiming indicator (no fire button - auto-fire is always on)
+    const aimX = CANVAS_WIDTH - 100;
+    const aimY = CANVAS_HEIGHT / 2;
+    ctx.globalAlpha = 0.15;
+    ctx.strokeStyle = 'rgba(0, 255, 200, 0.2)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.arc(CANVAS_WIDTH - 80, aimY, 40, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // Small crosshair hint
+    ctx.beginPath();
+    ctx.moveTo(CANVAS_WIDTH - 95, aimY);
+    ctx.lineTo(CANVAS_WIDTH - 65, aimY);
+    ctx.moveTo(CANVAS_WIDTH - 80, aimY - 15);
+    ctx.lineTo(CANVAS_WIDTH - 80, aimY + 15);
+    ctx.stroke();
+
+    ctx.globalAlpha = 1;
+    ctx.restore();
+}
+
 // ===== PAUSE-MENÜ =====
 function drawPauseMenu() {
     ctx.fillStyle = 'rgba(0, 0, 0, 0.75)';
@@ -1914,12 +2523,14 @@ function drawLevelUpMenu() {
         const cx = startX + i * (cardW + gap);
         const opt = levelUpOptions[i];
         const rarityColor = opt.rarity.color;
+        const isHovered = levelUpHoveredOption === i;
+        const isSelected = levelUpSelectedOption === i;
 
-        ctx.fillStyle = 'rgba(20, 20, 50, 0.9)';
-        ctx.strokeStyle = rarityColor;
-        ctx.lineWidth = 2;
-        ctx.shadowBlur = 15;
-        ctx.shadowColor = rarityColor;
+        ctx.fillStyle = isSelected ? 'rgba(60, 60, 100, 0.95)' : (isHovered ? 'rgba(45, 45, 75, 0.95)' : 'rgba(20, 20, 50, 0.9)');
+        ctx.strokeStyle = isSelected ? '#ffffff' : (isHovered ? '#ffffff' : rarityColor);
+        ctx.lineWidth = isSelected ? 5 : (isHovered ? 4 : 2);
+        ctx.shadowBlur = isSelected ? 30 : (isHovered ? 24 : 15);
+        ctx.shadowColor = isSelected ? '#ffffff' : (isHovered ? '#ffffff' : rarityColor);
 
         const r = 12;
         ctx.beginPath();
@@ -1937,13 +2548,46 @@ function drawLevelUpMenu() {
         ctx.stroke();
         ctx.shadowBlur = 0;
 
-        ctx.fillStyle = rarityColor;
+        ctx.fillStyle = isSelected ? '#ffffff' : (isHovered ? '#ffffff' : rarityColor);
         ctx.font = 'bold 16px Arial';
         ctx.fillText(opt.displayName, cx + cardW / 2, cardY + cardH / 2 + 6);
+
+        // Selection indicator
+        if (isSelected) {
+            ctx.fillStyle = '#00ffcc';
+            ctx.font = 'bold 12px Arial';
+            ctx.fillText('✓ Ausgewählt', cx + cardW / 2, cardY + cardH - 15);
+        }
     }
 
+    // "Weiter" Button (like chest menu)
+    const bw = 260;
+    const bh = 64;
+    const bx = CANVAS_WIDTH / 2 - bw / 2;
+    const by = CANVAS_HEIGHT - 100;
+
+    const hasSelection = levelUpSelectedOption >= 0;
+    const continueFill = hasSelection
+        ? (levelUpHoveredContinue ? 'rgba(255,170,0,0.24)' : 'rgba(255,170,0,0.18)')
+        : (levelUpHoveredContinue ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.06)');
+    const continueStroke = hasSelection
+        ? (levelUpHoveredContinue ? '#ffffff' : '#ffaa00')
+        : (levelUpHoveredContinue ? 'rgba(255,255,255,0.4)' : 'rgba(100,100,100,0.4)');
+
+    roundRect(ctx, bx, by, bw, bh, 20);
+    ctx.fillStyle = continueFill;
+    ctx.fill();
+    ctx.strokeStyle = continueStroke;
+    ctx.lineWidth = levelUpHoveredContinue ? 4 : 3;
+    ctx.stroke();
+
+    ctx.fillStyle = hasSelection ? '#ffffff' : '#888888';
+    ctx.font = 'bold 22px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText('Weiter', CANVAS_WIDTH / 2, by + bh / 2 + 8);
+
     // Farb-Legende: Wörter in Farbe nebeneinander, getrennt durch ' | '
-    const legendY = CANVAS_HEIGHT - 50;
+    const legendY = by - 30;
     ctx.font = '15px Arial';
 
     const legendColors = ['#cccccc', '#00cc44', '#4488ff', '#aa44ff', '#ff8800'];
@@ -1974,7 +2618,7 @@ function drawLevelUpMenu() {
     ctx.fillStyle = '#666666';
     ctx.font = '14px Arial';
     ctx.textAlign = 'center';
-    ctx.fillText('Klicke oder tippe auf ein Upgrade', CANVAS_WIDTH / 2, CANVAS_HEIGHT - 15);
+    ctx.fillText('Klicke auf eine Karte, dann auf Weiter', CANVAS_WIDTH / 2, CANVAS_HEIGHT - 15);
 
     ctx.textAlign = 'left';
 }
@@ -2006,6 +2650,21 @@ function drawOptionsMenu() {
         ctx.restore();
     }
 
+    // Back button (mobile-friendly)
+    const backBtnX = 20;
+    const backBtnY = 20;
+    const backBtnW = 160;
+    const backBtnH = 52;
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.08)';
+    roundRect(ctx, backBtnX, backBtnY, backBtnW, backBtnH, 14);
+    ctx.fill();
+    ctx.strokeStyle = '#00ffcc';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.fillStyle = '#00ffcc';
+    ctx.font = 'bold 18px Arial';
+    ctx.textAlign = 'left';
+    ctx.fillText('Zurück', backBtnX + 16, backBtnY + backBtnH / 2 + 6);
     ctx.textAlign = 'center';
 
     // Titel
@@ -2014,7 +2673,7 @@ function drawOptionsMenu() {
     ctx.fillStyle = '#00ffcc';
     const titleSize = Math.min(56, CANVAS_WIDTH * 0.08);
     ctx.font = `bold ${titleSize}px Arial`;
-    ctx.fillText('Optionen', CANVAS_WIDTH / 2, titleSize + 50);
+    ctx.fillText('Optionen', CANVAS_WIDTH / 2, titleSize + 80);
     ctx.shadowBlur = 0;
 
     // Einstellungen-Startposition
@@ -2054,7 +2713,7 @@ function drawOptionsMenu() {
     ctx.textAlign = 'center';
     ctx.fillStyle = '#666666';
     ctx.font = '14px Arial';
-    ctx.fillText('ESC = Zurück zum Hauptmenü', CANVAS_WIDTH / 2, CANVAS_HEIGHT - 30);
+    ctx.fillText('Tippe oben links auf "Zurück"', CANVAS_WIDTH / 2, CANVAS_HEIGHT - 30);
 
     ctx.textAlign = 'left';
 }
@@ -2078,15 +2737,70 @@ function drawGameOver() {
     ctx.fillText('Score: ' + score, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 10);
     ctx.fillText('Level: ' + player.level, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 45);
 
+    const btnX = CANVAS_WIDTH / 2 - 120;
+    const btnY = CANVAS_HEIGHT / 2 + 110;
+    const btnW = 240;
+    const btnH = 52;
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
+    roundRect(ctx, btnX, btnY, btnW, btnH, 12);
+    ctx.fill();
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '20px Arial';
+    ctx.fillText('Zurück zum Hauptmenü', CANVAS_WIDTH / 2, btnY + btnH / 2 + 7);
+
     ctx.fillStyle = '#888888';
     ctx.font = '18px Arial';
-    ctx.fillText('Drücke R um zurück zum Menü zu kommen', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 100);
+    ctx.fillText('TRY AGAIN?', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 100);
 
     ctx.textAlign = 'left';
 }
 
+// ===== AUTOMATISCHES FEUER =====
+function checkAutoFire() {
+    if (gameState !== 'PLAYING' || !selectedClass) return;
+
+    // Mobile: always auto-fire (all weapons, using aiming angle)
+    if (isMobile) {
+        const now = Date.now();
+        const rateMult = player.fireRateMultiplier !== undefined ? player.fireRateMultiplier : 1;
+        if (now - lastShotTime < selectedClass.fireRate * rateMult) return;
+        lastShotTime = now;
+
+        // Use the aiming angle
+        const angle = player.angle;
+        const dx = Math.cos(angle);
+        const dy = Math.sin(angle);
+        if (dx === 0 && dy === 0) return;
+
+        fireBullet(dx, dy);
+        return;
+    }
+
+    // Desktop: only machinegun auto-fire on mouse hold
+    if (selectedClass.id !== 2) return;
+    if (!mouseDown) return;
+
+    const now = Date.now();
+    const rateMult = player.fireRateMultiplier !== undefined ? player.fireRateMultiplier : 1;
+    if (now - lastShotTime < selectedClass.fireRate * rateMult) return;
+    lastShotTime = now;
+
+    const dx = mouseX - CANVAS_WIDTH / 2;
+    const dy = mouseY - CANVAS_HEIGHT / 2;
+    const length = Math.sqrt(dx * dx + dy * dy);
+    if (length === 0) return;
+
+    fireBullet(dx / length, dy / length);
+}
+
 // ===== GAME LOOP =====
 function gameLoop() {
+    // Ruft die Automatik für das MG im Takt des Spiels auf
+    checkAutoFire();
+
     update();
 
     // Zeichnen
@@ -2102,6 +2816,19 @@ function gameLoop() {
         drawXpCrystals();
         for (const e of enemies) drawEnemy(e);
         for (const b of bullets) drawBullet(b);
+        // Draw chests in world
+        for (const ch of chests) {
+            if (ch.opened) continue;
+            const dx = ch.x - cameraX + CANVAS_WIDTH / 2;
+            const dy = ch.y - cameraY + CANVAS_HEIGHT / 2;
+            ctx.save();
+            ctx.fillStyle = 'gold';
+            ctx.shadowBlur = 20;
+            ctx.shadowColor = '#ffd700';
+            roundRect(ctx, dx - 16, dy - 12, 32, 24, 6);
+            ctx.fill();
+            ctx.restore();
+        }
         drawPlayer();
         drawParticles();
         drawMenuButton();
@@ -2160,7 +2887,35 @@ function gameLoop() {
         const mins = Math.floor(gameTime / 60);
         const secs = Math.floor(gameTime % 60);
         ctx.fillText(`${mins}:${secs.toString().padStart(2, '0')}`, CANVAS_WIDTH / 2, 30);
+
+        const boss = enemies.find(e => e.isBoss || e.type === 'MINIBOSS');
+        if (boss) {
+            const bossBarW = CANVAS_WIDTH * 0.6;
+            const bossBarH = 24;
+            const bossBarX = (CANVAS_WIDTH - bossBarW) / 2;
+            const bossBarY = 44;
+            const hpPercent = Math.max(0, Math.min(1, (boss.health !== undefined ? boss.health : boss.hp) / (boss.maxHealth !== undefined ? boss.maxHealth : boss.maxHp)));
+            const bossFillW = bossBarW * hpPercent;
+
+            ctx.fillStyle = 'rgba(30, 30, 30, 0.9)';
+            roundRect(ctx, bossBarX, bossBarY, bossBarW, bossBarH, 14);
+            ctx.fill();
+
+            ctx.fillStyle = 'rgba(255, 60, 60, 0.95)';
+            roundRect(ctx, bossBarX + 2, bossBarY + 2, Math.max(4, bossFillW - 4), bossBarH - 4, 12);
+            ctx.fill();
+
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold 14px Arial';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('MINIBOSS', CANVAS_WIDTH / 2, bossBarY + bossBarH / 2);
+            ctx.textBaseline = 'alphabetic';
+        }
+
         ctx.textAlign = 'left';
+
+        if (isMobile) drawMobileControls();
     }
     else if (gameState === 'PAUSED') {
         ctx.fillStyle = '#0a0a1a';
@@ -2172,6 +2927,9 @@ function gameLoop() {
         drawPlayer();
         drawParticles();
         drawPauseMenu();
+    }
+    else if (gameState === 'CHEST_OPEN') {
+        drawChestMenu();
     }
     else if (gameState === 'LEVEL_UP') {
         ctx.fillStyle = '#0a0a1a';
@@ -2191,12 +2949,95 @@ function gameLoop() {
     requestAnimationFrame(gameLoop);
 }
 
-requestAnimationFrame(gameLoop);
+function drawChestMenu() {
+    ctx.fillStyle = 'rgba(0,0,0,0.85)';
+    ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
-// ============================================================
-// TODO: BALANCING & GAMEPLAY UPGRADES
-// ============================================================
-// - Level-Up Karten nerfen/buffen
-// - Rare Gegner & Minibosse integrieren
-// - Truppen-Drops bei Bossen (Vampire Survivors Style) für Sonderfähigkeiten
-// ============================================================
+    ctx.fillStyle = '#111111';
+    ctx.fillRect(40, 80, CANVAS_WIDTH - 80, CANVAS_HEIGHT - 160);
+    ctx.strokeStyle = '#444444';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(40, 80, CANVAS_WIDTH - 80, CANVAS_HEIGHT - 160);
+
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#ffd700';
+    ctx.font = 'bold 34px Arial';
+    ctx.fillText('LEGENDÄRE TRUHE GEÖFFNET!', CANVAS_WIDTH / 2, 150);
+
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '20px Arial';
+    ctx.fillText('Wähle deine Belohnung:', CANVAS_WIDTH / 2, 200);
+
+    const optW = Math.min(380, CANVAS_WIDTH * 0.4);
+    const optH = 110;
+    const gap = 40;
+    const leftX = CANVAS_WIDTH / 2 - optW - gap / 2;
+    const rightX = CANVAS_WIDTH / 2 + gap / 2;
+    const optY = 240;
+
+    const leftHovered = chestHoveredOption === 'multishot';
+    const rightHovered = chestHoveredOption === 'double';
+    const continueHovered = chestHoveredOption === 'continue';
+
+    const leftFill = chestSelectedOption === 'multishot'
+        ? 'rgba(255,170,0,0.18)'
+        : leftHovered
+            ? 'rgba(255,255,255,0.14)'
+            : 'rgba(255,255,255,0.04)';
+    const rightFill = chestSelectedOption === 'double'
+        ? 'rgba(255,170,0,0.18)'
+        : rightHovered
+            ? 'rgba(255,255,255,0.14)'
+            : 'rgba(255,255,255,0.04)';
+    const continueFill = chestSelectedOption
+        ? (continueHovered ? 'rgba(255,170,0,0.24)' : 'rgba(255,170,0,0.18)')
+        : (continueHovered ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.06)');
+
+    roundRect(ctx, leftX - 10, optY - 5, optW + 20, optH + 10, 20);
+    ctx.fillStyle = leftFill;
+    ctx.fill();
+    ctx.strokeStyle = leftHovered ? '#ffffff' : '#ffaa00';
+    ctx.lineWidth = leftHovered ? 4 : 3;
+    ctx.stroke();
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 20px Arial';
+    ctx.textAlign = 'left';
+    ctx.fillText('Multishot', leftX + 18, optY + 38);
+    ctx.fillStyle = '#eae0c6';
+    ctx.font = '16px Arial';
+    ctx.fillText('+ 100% Projektile', leftX + 18, optY + 70);
+
+    roundRect(ctx, rightX - 10, optY - 5, optW + 20, optH + 10, 20);
+    ctx.fillStyle = rightFill;
+    ctx.fill();
+    ctx.strokeStyle = rightHovered ? '#ffffff' : '#ffaa00';
+    ctx.lineWidth = rightHovered ? 4 : 3;
+    ctx.stroke();
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 20px Arial';
+    ctx.fillText('Giga-Schaden', rightX + 18, optY + 38);
+    ctx.fillStyle = '#eae0c6';
+    ctx.font = '16px Arial';
+    ctx.fillText('+ 100% Schaden', rightX + 18, optY + 70);
+
+    const bw = 260;
+    const bh = 64;
+    const bx = CANVAS_WIDTH / 2 - bw / 2;
+    const by = CANVAS_HEIGHT - 150;
+    roundRect(ctx, bx, by, bw, bh, 20);
+    ctx.fillStyle = continueFill;
+    ctx.fill();
+    ctx.strokeStyle = continueHovered ? '#ffffff' : '#ffaa00';
+    ctx.lineWidth = continueHovered ? 4 : 3;
+    ctx.stroke();
+
+    ctx.fillStyle = chestSelectedOption ? '#ffffff' : '#cccccc';
+    ctx.font = 'bold 22px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText('Weiter', CANVAS_WIDTH / 2, by + bh / 2 + 8);
+
+    ctx.textAlign = 'left';
+}
+
+// ===== START GAME LOOP =====
+requestAnimationFrame(gameLoop);
