@@ -43,10 +43,10 @@ const CLASSES = {
         name: 'Sniper',
         description: 'Langsam, aber tödlich',
         detail: 'Durchschlagende Kugeln',
-        fireRate: 500,
+        fireRate: 550, // Minimal langsamer gemacht (von 500)
         bulletSpeed: 14,
         bulletSize: 4,
-        damage: 100,
+        damage: 90,     // Schaden leicht generft (von 100)
         piercing: true,
         color: '#ff00ff',
         glowColor: '#ff00ff'
@@ -55,11 +55,11 @@ const CLASSES = {
         id: 2,
         name: 'Maschinengewehr',
         description: 'Dauerfeuer',
-        detail: 'Geringer Schaden, hohe Feuerrate',
-        fireRate: 100,
-        bulletSpeed: 10,
+        detail: 'Extrem hohe Feuerrate, solider Schaden',
+        fireRate: 80,   // Schneller ballern! (von 100)
+        bulletSpeed: 11,  // Kugeln fliegen minimal schneller (von 10)
         bulletSize: 3,
-        damage: 20,
+        damage: 35,     // Schaden fast verdoppelt! (von 20)
         piercing: false,
         color: '#ffff00',
         glowColor: '#ffaa00'
@@ -68,14 +68,14 @@ const CLASSES = {
         id: 3,
         name: 'Schrotflinte',
         description: 'Flächenschaden',
-        detail: 'Multishot, kurze Reichweite',
-        fireRate: 600,
+        detail: 'Verheerender Nahkampf-Schaden',
+        fireRate: 500,  // Feuerrate erhöht (von 600)
         bulletSpeed: 10,
         bulletSize: 3,
-        pellets: 4,
-        spreadAngle: 0.3,
-        maxRange: 300,
-        damage: 30,
+        pellets: 5,     // Eine Kugel mehr pro Schuss! (von 4)
+        spreadAngle: 0.35, // Etwas breiterer Streukreis für besseres Crowd-Control
+        maxRange: 320,  // Minimale Reichweiten-Erhöhung (von 300)
+        damage: 45,     // Jede einzelne Kugel tut jetzt richtig weh (von 30)
         piercing: false,
         color: '#ff8800',
         glowColor: '#ff4400'
@@ -104,6 +104,7 @@ const player = {
     xp: 0,
     xpToNext: 50,
     // Upgrade-Modifikatoren
+    magnetRadius: 100,
     damageMultiplier: 1.0,
     speedMultiplier: 1.0,
     fireRateMultiplier: 1.0,
@@ -272,18 +273,24 @@ let touchJoystickX = 0;
 let touchJoystickY = 0;
 let touchJoystickId = -1;
 let touchJoystickLastAngle = 0;
+
+// NEU / ANGEPASST für den dynamischen Aim-Stick rechts unten:
 let touchFireActive = false;
 let touchFireId = -1;
-let touchFireAngle = 0;
+let touchFireCenterX = 0; // Wird beim Touch-Start dynamisch gesetzt
+let touchFireCenterY = 0; // Wird beim Touch-Start dynamisch gesetzt
+let touchFireX = 0;       // Visuelle Verschiebung des inneren Knopfs
+let touchFireY = 0;
 
 const joystickCenterX = () => 140;
 const joystickCenterY = () => CANVAS_HEIGHT - 140;
 const joystickRadius = 70;
 const joystickKnobRadius = 25;
 
-const fireBtnCenterX = () => CANVAS_WIDTH - 120;
-const fireBtnCenterY = () => CANVAS_HEIGHT - 120;
-const fireBtnRadius = 55;
+// Standard-Ankerpunkt rechts unten (spiegelt den linken Joystick perfekt)
+const fireBtnCenterX = () => CANVAS_WIDTH - 140;
+const fireBtnCenterY = () => CANVAS_HEIGHT - 140;
+const fireBtnRadius = 70;
 
 const menuBtnX = () => CANVAS_WIDTH - 60;
 const menuBtnY = () => 50;
@@ -460,14 +467,16 @@ function generateLevelUpOptions() {
             apply: (mult) => { player.damageMultiplier += 0.1 * mult; }
         },
         {
-            baseName: '+15% Lauftempo',
-            baseValue: 0.15,
-            apply: (mult) => { player.speedMultiplier += 0.15 * mult; }
+            // BALANCIERT: Von +15% auf +8% runtergesetzt, damit man nicht unendlich schnell wird
+            baseName: '+8% Lauftempo',
+            baseValue: 0.08,
+            apply: (mult) => { player.speedMultiplier += 0.08 * mult; }
         },
         {
-            baseName: '+20% Schussrate',
-            baseValue: 0.8,
-            apply: (mult) => { player.fireRateMultiplier *= Math.pow(0.8, mult); }
+            // BALANCIERT: Von +20% (0.8) auf +12% (0.88) abgeschwächt, da die Feuerrate sonst zu schnell skaliert
+            baseName: '+12% Schussrate',
+            baseValue: 0.88,
+            apply: (mult) => { player.fireRateMultiplier *= Math.pow(0.88, mult); }
         },
         {
             baseName: '+20% Max-Leben',
@@ -475,20 +484,29 @@ function generateLevelUpOptions() {
             apply: (mult) => { const heal = Math.round(20 * mult); player.maxHealth += heal; player.health = Math.min(player.health + heal, player.maxHealth); }
         },
         {
+            // UNVERÄNDERT: Fühlt sich laut dir schon gut an!
             baseName: '+0.5% Lebensraub',
             baseValue: 0.005,
             apply: (mult) => { player.lifesteal += 0.005 * mult; }
         },
         {
-            baseName: '+15% Projektil-Geschw.',
-            baseValue: 0.15,
-            apply: (mult) => { player.bulletSpeedMultiplier += 0.15 * mult; }
-        }
-        ,
+            // BALANCIERT: Auf +10% angepasst, damit Kugeln das Spielfeld nicht sofort verlassen
+            baseName: '+10% Projektil-Geschw.',
+            baseValue: 0.1,
+            apply: (mult) => { player.bulletSpeedMultiplier += 0.1 * mult; }
+        },
         {
             baseName: 'XP-Booster',
             baseValue: 0.15,
             apply: (mult) => { player.xpMultiplier += 0.15 * mult; }
+        },
+        {
+            baseName: 'Magnet-Reichweite',
+            baseValue: 0.1, // Setzt den Basiswert auf 10% (0.1)
+            apply: (mult) => { 
+                // Erhöht den Radius sauber basierend auf dem Startwert 100
+                player.magnetRadius = (player.magnetRadius || 100) + (100 * 0.1 * mult); 
+            }
         }
     ];
 
@@ -553,14 +571,8 @@ function handleTouchStart(e) {
             const touch = e.changedTouches[i];
             const tx = touch.clientX - rect.left;
             const ty = touch.clientY - rect.top;
-            if (isInsideStartBtn(tx, ty)) {
-                goToCharSelect();
-                return;
-            }
-            if (isInsideOptionsBtn(tx, ty)) {
-                gameState = 'OPTIONS';
-                return;
-            }
+            if (isInsideStartBtn(tx, ty)) { goToCharSelect(); return; }
+            if (isInsideOptionsBtn(tx, ty)) { gameState = 'OPTIONS'; return; }
         }
         return;
     }
@@ -584,26 +596,18 @@ function handleTouchStart(e) {
             const tx = touch.clientX - rect.left;
             const ty = touch.clientY - rect.top;
 
-            if (tx >= leftRect.x && tx <= leftRect.x + leftRect.w &&
-                ty >= leftRect.y && ty <= leftRect.y + leftRect.h) {
+            if (tx >= leftRect.x && tx <= leftRect.x + leftRect.w && ty >= leftRect.y && ty <= leftRect.y + leftRect.h) {
                 chestSelectedOption = 'multishot';
                 return;
             }
-
-            if (tx >= rightRect.x && tx <= rightRect.x + rightRect.w &&
-                ty >= rightRect.y && ty <= rightRect.y + rightRect.h) {
+            if (tx >= rightRect.x && tx <= rightRect.x + rightRect.w && ty >= rightRect.y && ty <= rightRect.y + rightRect.h) {
                 chestSelectedOption = 'double';
                 return;
             }
-
-            if (tx >= bx && tx <= bx + bw &&
-                ty >= by && ty <= by + bh) {
+            if (tx >= bx && tx <= bx + bw && ty >= by && ty <= by + bh) {
                 if (!chestSelectedOption) return;
-                if (chestSelectedOption === 'multishot') {
-                    player.projectileMultiplier *= 2;
-                } else if (chestSelectedOption === 'double') {
-                    player.damageMultiplier *= 2;
-                }
+                if (chestSelectedOption === 'multishot') player.projectileMultiplier *= 2;
+                else if (chestSelectedOption === 'double') player.damageMultiplier *= 2;
                 chests = chests.filter(c => !c.opened);
                 currentChest = null;
                 chestSelectedOption = null;
@@ -620,10 +624,7 @@ function handleTouchStart(e) {
             const touch = e.changedTouches[i];
             const tx = touch.clientX - rect.left;
             const ty = touch.clientY - rect.top;
-            if (isInsideCharacterCard(tx, ty, 0)) {
-                selectCharacter(0);
-                return;
-            }
+            if (isInsideCharacterCard(tx, ty, 0)) { selectCharacter(0); return; }
         }
         return;
     }
@@ -657,11 +658,7 @@ function handleTouchStart(e) {
             const touch = e.changedTouches[i];
             const tx = touch.clientX - rect.left;
             const ty = touch.clientY - rect.top;
-            if (isInsideOptionsBack(tx, ty)) {
-                gameState = 'MAIN_MENU';
-                initMainMenuParticles();
-                return;
-            }
+            if (isInsideOptionsBack(tx, ty)) { gameState = 'MAIN_MENU'; initMainMenuParticles(); return; }
         }
         return;
     }
@@ -672,10 +669,7 @@ function handleTouchStart(e) {
             const tx = touch.clientX - rect.left;
             const ty = touch.clientY - rect.top;
             const klasse = getClassAtPosition(tx, ty);
-            if (klasse) {
-                startGame(klasse);
-                return;
-            }
+            if (klasse) { startGame(klasse); return; }
         }
         return;
     }
@@ -700,15 +694,12 @@ function handleTouchStart(e) {
                 }
             }
 
-            // Check "Weiter" button
             const bw = 260;
             const bh = 64;
             const bx = CANVAS_WIDTH / 2 - bw / 2;
             const by = CANVAS_HEIGHT - 100;
             if (tx >= bx && tx <= bx + bw && ty >= by && ty <= by + bh) {
-                if (levelUpSelectedOption >= 0) {
-                    applyLevelUp(levelUpSelectedOption);
-                }
+                if (levelUpSelectedOption >= 0) applyLevelUp(levelUpSelectedOption);
                 return;
             }
         }
@@ -720,16 +711,8 @@ function handleTouchStart(e) {
             const touch = e.changedTouches[i];
             const tx = touch.clientX - rect.left;
             const ty = touch.clientY - rect.top;
-            if (isInsidePauseBtn(tx, ty, pauseContinueBtn)) {
-                gameState = 'PLAYING';
-                return;
-            }
-            if (isInsidePauseBtn(tx, ty, pauseMenuBtn)) {
-                gameState = 'MAIN_MENU';
-                resetGameState();
-                initMainMenuParticles();
-                return;
-            }
+            if (isInsidePauseBtn(tx, ty, pauseContinueBtn)) { gameState = 'PLAYING'; return; }
+            if (isInsidePauseBtn(tx, ty, pauseMenuBtn)) { gameState = 'MAIN_MENU'; resetGameState(); initMainMenuParticles(); return; }
         }
         return;
     }
@@ -744,15 +727,12 @@ function handleTouchStart(e) {
             const btnW = 240;
             const btnH = 52;
             if (tx >= btnX && tx <= btnX + btnW && ty >= btnY && ty <= btnY + btnH) {
-                gameState = 'MAIN_MENU';
-                resetGameState();
-                initMainMenuParticles();
-                return;
-            }
+                gameState = 'MAIN_MENU'; resetGameState(); initMainMenuParticles(); return; }
         }
         return;
     }
 
+    // --- Ab hier läuft das eigentliche Gameplay (Spielen) ---
     for (let i = 0; i < e.changedTouches.length; i++) {
         const touch = e.changedTouches[i];
         const tx = touch.clientX - rect.left;
@@ -763,23 +743,27 @@ function handleTouchStart(e) {
             continue;
         }
 
-        // Right side touch = aiming only (no manual fire button)
-        if (!isInsideJoystickArea(tx, ty) && !isInsideMenuBtn(tx, ty)) {
-            // Use touch position to set aiming direction (right side)
-            const dx = tx - CANVAS_WIDTH / 2;
-            const dy = ty - CANVAS_HEIGHT / 2;
-            const len = Math.sqrt(dx * dx + dy * dy);
-            if (len > 10) {
-                player.angle = Math.atan2(dy, dx);
-            }
-            continue;
-        }
-
+        // Linker Stick: Laufen
         if (isInsideJoystickArea(tx, ty)) {
             touchJoystickActive = true;
             touchJoystickId = touch.identifier;
             updateJoystickPosition(tx, ty);
             setJoystickDirection(tx, ty);
+            continue;
+        }
+
+        // ===== HIER ERSETZEN: Rechter Stick (Ehemals FireButton): Zielen & Feuern =====
+        if (isInsideFireButton(tx, ty) || tx > CANVAS_WIDTH / 2) {
+            touchFireActive = true;
+            touchFireId = touch.identifier;
+            
+            // DAS HIER FEHLTE: Startpunkt für das dynamische Zielen festlegen!
+            touchFireCenterX = tx;
+            touchFireCenterY = ty;
+            touchFireX = 0;
+            touchFireY = 0;
+            
+            updateAimJoystickPosition(tx, ty);
             continue;
         }
     }
@@ -793,21 +777,15 @@ function handleTouchMove(e) {
         const tx = touch.clientX - rect.left;
         const ty = touch.clientY - rect.top;
 
+        // Bewegung linker Stick
         if (touch.identifier === touchJoystickId) {
             updateJoystickPosition(tx, ty);
             setJoystickDirection(tx, ty);
         }
 
-        // Right side touch move = update aiming direction
-        if (touch.identifier !== touchJoystickId) {
-            if (!isInsideJoystickArea(tx, ty)) {
-                const dx = tx - CANVAS_WIDTH / 2;
-                const dy = ty - CANVAS_HEIGHT / 2;
-                const len = Math.sqrt(dx * dx + dy * dy);
-                if (len > 10) {
-                    player.angle = Math.atan2(dy, dx);
-                }
-            }
+        // Bewegung rechter Stick (Zielen)
+        if (touch.identifier === touchFireId) {
+            updateAimJoystickPosition(tx, ty);
         }
     }
 }
@@ -817,6 +795,7 @@ function handleTouchEnd(e) {
     for (let i = 0; i < e.changedTouches.length; i++) {
         const touch = e.changedTouches[i];
 
+        // Linker Stick losgelassen
         if (touch.identifier === touchJoystickId) {
             touchJoystickLastAngle = player.angle;
             touchJoystickActive = false;
@@ -825,6 +804,16 @@ function handleTouchEnd(e) {
             touchJoystickY = 0;
             player.vx = 0;
             player.vy = 0;
+        }
+
+        // ===== HIER ERSETZEN: Rechter Stick losgelassen (Feuern stoppen) =====
+        if (touch.identifier === touchFireId) {
+            touchFireActive = false;
+            touchFireId = -1;
+            
+            // NEU: Setzt den inneren Knopf visuell wieder genau in die Mitte zurück, wenn man loslässt
+            touchFireX = 0;
+            touchFireY = 0;
         }
     }
 }
@@ -857,6 +846,33 @@ function setJoystickDirection(tx, ty) {
     }
 }
 
+// Berechnet die visuelle Verschiebung und den Zielwinkel des rechten Sticks
+function updateAimJoystickPosition(tx, ty) {
+    // Sicherheits-Check falls es beim ersten Klick hakt:
+    if (!touchFireCenterX || touchFireCenterX === 0) {
+        touchFireCenterX = fireBtnCenterX();
+        touchFireCenterY = fireBtnCenterY();
+    }
+
+    const dx = tx - touchFireCenterX;
+    const dy = ty - touchFireCenterY;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    const maxDist = fireBtnRadius - 25; 
+
+    if (dist > maxDist) {
+        touchFireX = (dx / dist) * maxDist;
+        touchFireY = (dy / dist) * maxDist;
+    } else {
+        touchFireX = dx;
+        touchFireY = dy;
+    }
+
+    // Nur den Winkel ändern, wenn der Finger sich wirklich bewegt hat
+    if (dist > 5) {
+        player.angle = Math.atan2(dy, dx);
+    }
+}
+
 function isInsideJoystickArea(tx, ty) {
     return tx <= CANVAS_WIDTH * 0.45 && ty >= CANVAS_HEIGHT * 0.45;
 }
@@ -864,12 +880,12 @@ function isInsideJoystickArea(tx, ty) {
 function isInsideFireButton(tx, ty) {
     const dx = tx - fireBtnCenterX();
     const dy = ty - fireBtnCenterY();
-    return Math.sqrt(dx * dx + dy * dy) < fireBtnRadius;
+    return Math.sqrt(dx * dx + dy * dy) < fireBtnRadius + 40; // Toleranzbereich vergrößert für dickere Finger
 }
 
 function touchShoot() {
     if (gameState !== 'PLAYING' || !selectedClass) return;
-    if (!touchFireActive) return;
+    if (!touchFireActive) return; // Schießt nur, wenn der rechte Stick gehalten wird
 
     const now = Date.now();
     if (now - lastShotTime < selectedClass.fireRate * player.fireRateMultiplier) return;
@@ -1262,6 +1278,7 @@ function fireBullet(dirX, dirY) {
                 vy: Math.sin(angle) * bulletSpeed,
                 damage: dmg,
                 piercing: true,
+                hitEnemies: [], // NEU: Verhindert Mehrfachtreffer pro Gegner
                 color: '#ff88ff',
                 glow: '#ff00ff',
                 startX: player.x,
@@ -1280,6 +1297,7 @@ function fireBullet(dirX, dirY) {
                 vy: dirY * bulletSpeed + (Math.random() - 0.5) * 1.5 + (i - (finalCount - 1) / 2) * 0.6,
                 damage: dmg,
                 piercing: false,
+                hitEnemies: [], // NEU: Einheitlich für alle Projektile
                 color: '#ffff00',
                 glow: '#ffaa00',
                 startX: player.x,
@@ -1304,6 +1322,7 @@ function fireBullet(dirX, dirY) {
                 vy: Math.sin(angle) * spd,
                 damage: dmg,
                 piercing: false,
+                hitEnemies: [], // NEU: Einheitlich für alle Projektile
                 maxRange: Number(selectedClass.maxRange) || 300,
                 color: '#ffaa44',
                 glow: '#ff4400',
@@ -1434,7 +1453,7 @@ function spawnEnemy() {
         ecolor = '#ff3333'; eglow = '#ff0000'; espeed = baseSpeed; ehealth = 100; expValue = 1;
     } else if (chosen === 2) {
         etype = 'TANK';
-        ecolor = '#ffff55'; eglow = '#ffff88'; espeed = baseSpeed * 0.45; ehealth = 500; expValue = 5;
+        ecolor = '#ffff55'; eglow = '#ffff88'; espeed = baseSpeed * 0.45; ehealth = 500; expValue = 3;
     } else if (chosen === 3) {
         etype = 'RUNNER';
         ecolor = '#ff55ff'; eglow = '#ff88ff'; espeed = baseSpeed * 1.8; ehealth = 40; expValue = 2;
@@ -1452,38 +1471,56 @@ function spawnEnemy() {
     });
 }
 
+// ==== MINIBOSS SPAWNEN =====
 function spawnMiniboss() {
     if (gameState !== 'PLAYING') return;
-    const size = 22 * 4;
-    // Make miniboss much tougher: base standard enemy HP is 100, scale x50
-    const hp = 100 * 50; // 5000
-    // spawn a little outside the visible area relative to the player
-    const bx = player.x + 400;
-    const by = player.y;
+    
+    const size = 88; 
+    const hp = 5000; 
+    
+    // Zufällige Himmelsrichtung berechnen (Zufälliger Winkel im 360-Grad-Kreis)
+    const randomAngle = Math.random() * Math.PI * 2;
+    const spawnDistance = 450; // Weit genug weg, um nicht direkt auf dem Spieler zu landen, aber sichtbar
+    
+    const bx = player.x + Math.cos(randomAngle) * spawnDistance;
+    const by = player.y + Math.sin(randomAngle) * spawnDistance;
+    
     enemies.push({
-        x: bx, y: by, size, speed: enemyBaseSpeed * 0.6,
-        color: '#aa44ff', glow: '#ff88ff',
+        x: bx, 
+        y: by, 
+        size: size, 
+        speed: enemyBaseSpeed * 0.6, 
+        color: '#aa44ff', 
+        glow: '#ff88ff',
         angle: 0,
         rotSpeed: 0.005,
         health: hp,
         maxHealth: hp,
         type: 'MINIBOSS',
-        xpValue: 50
+        xpValue: 500, 
+        dropCount: 25  
     });
+    
     minibossSpawned = true;
 }
 
 // ===== XP-KRISTALL DROPPEN =====
-function dropXpCrystal(x, y) {
-    xpCrystals.push({
-        x: x + (Math.random() - 0.5) * 20,
-        y: y + (Math.random() - 0.5) * 20,
-        size: 6,
-        color: '#4488ff',
-        glow: '#0044ff',
-        collected: false,
-        value: 1
-    });
+function dropXpCrystal(x, y, count = 1, totalValue = 1) {
+    // Berechne den Wert pro Kristall (z.B. 500 XP / 25 Kristalle = 20 XP pro Kristall)
+    const valuePerCrystal = totalValue / count;
+
+    for (let i = 0; i < count; i++) {
+        xpCrystals.push({
+            // Streue die Kristalle in einem schönen Kreis um den Todesort des Bosses
+            x: x + (Math.random() - 0.5) * 60,
+            y: y + (Math.random() - 0.5) * 60,
+            size: count > 1 ? 8 : 6, // Boss-Kristalle sind ein kleines bisschen größer!
+            color: count > 1 ? '#aa44ff' : '#4488ff', // Lila für Boss-Loot, Blau für Standard
+            glow: count > 1 ? '#ff88ff' : '#0044ff',
+            collected: false,
+            value: valuePerCrystal
+        });
+    }
 }
 
 // ===== EXPLOSION =====
@@ -1563,7 +1600,7 @@ function update() {
     gridOffsetX = cameraX;
     gridOffsetY = cameraY;
 
-    if (!minibossSpawned && gameState === 'PLAYING' && gameTime >= 30) {
+    if (!minibossSpawned && gameState === 'PLAYING' && gameTime >= 300) {
         spawnMiniboss();
     }
 
@@ -1573,25 +1610,43 @@ function update() {
         player.angle = Math.atan2(mouseY - CANVAS_HEIGHT / 2, mouseX - CANVAS_WIDTH / 2);
     }
 
-    // === Projektile bewegen ===
+// === Projektile bewegen ===
     for (let i = bullets.length - 1; i >= 0; i--) {
         const b = bullets[i];
         b.x += b.vx;
         b.y += b.vy;
 
-            if (b.maxRange) {
-                const dist = Math.sqrt((b.x - b.startX) ** 2 + (b.y - b.startY) ** 2);
-                if (dist > b.maxRange) { bullets.splice(i, 1); continue; }
-            }
+        if (b.maxRange) {
+            const dist = Math.sqrt((b.x - b.startX) ** 2 + (b.y - b.startY) ** 2);
+            if (dist > b.maxRange) { bullets.splice(i, 1); continue; }
+        }
 
-            b.life--;
-            if (b.life <= 0) {
-                bullets.splice(i, 1);
+        b.life--;
+        if (b.life <= 0) {
+            bullets.splice(i, 1);
+            continue;
+        }
+
+        // PRÜFUNG: Trifft eine gegnerische Kugel den Spieler?
+        if (b.isEnemyBullet) {
+            const distToPlayer = Math.sqrt((b.x - player.x) ** 2 + (b.y - player.y) ** 2);
+            // player.size + b.size ist die Berührungs-Hitbox
+            if (distToPlayer < (player.size || 12) + b.size) {
+                player.health -= b.damage;
+                createExplosion(player.x, player.y, 10, '#ff0055', '#ff0000', 3);
+                
+                bullets.splice(i, 1); // Kugel löschen
+
+                if (player.health <= 0) {
+                    player.health = 0;
+                    gameState = 'GAMEOVER';
+                    if (spawnTimerId) clearInterval(spawnTimerId);
+                }
                 continue;
             }
+        }
     }
-
-    // === Gegner bewegen ===
+// === Gegner bewegen & Boss Angriffe ===
     for (let i = 0; i < enemies.length; i++) {
         const e = enemies[i];
         const dx = player.x - e.x;
@@ -1602,8 +1657,38 @@ function update() {
             e.y += (dy / length) * e.speed;
         }
         e.angle += e.rotSpeed;
-    }
 
+        // Miniboss Fernkampf-Logik
+        if (e.type === 'MINIBOSS') {
+            if (!e.lastShotTime) e.lastShotTime = Date.now();
+
+            const now = Date.now();
+            // Schießt alle 2000ms (2 Sekunden)
+            if (now - e.lastShotTime > 2000) {
+                e.lastShotTime = now;
+
+                const angleToPlayer = Math.atan2(dy, dx);
+                const bossBulletSpeed = 4; // Schön ausweichbar
+
+                // Rote Kugel in die Projektil-Liste einspeisen
+                bullets.push({
+                    x: e.x,
+                    y: e.y,
+                    size: 8,
+                    vx: Math.cos(angleToPlayer) * bossBulletSpeed,
+                    vy: Math.sin(angleToPlayer) * bossBulletSpeed,
+                    damage: 15, // Macht 15 Schaden bei Treffer
+                    piercing: false,
+                    isEnemyBullet: true, // Markierung für die Projektilschleife
+                    color: '#ff0055',
+                    glow: '#ff0000',
+                    startX: e.x,
+                    startY: e.y,
+                    life: 250
+                });
+            }
+        }
+    }
     // === Chest pickup check ===
     for (let i = 0; i < chests.length; i++) {
         const ch = chests[i];
@@ -1627,16 +1712,26 @@ function update() {
         }
     }
 
-    // === Kollision: Projektil trifft Gegner ===
+// === Kollision: Projektil trifft Gegner (REPARIERT) ===
     for (let i = bullets.length - 1; i >= 0; i--) {
         const b = bullets[i];
         let bulletRemoved = false;
 
+        // Falls hitEnemies noch nicht existiert (Sicherheitshalber), erstellen wir es hier
+        if (!b.hitEnemies) b.hitEnemies = [];
+
         for (let j = enemies.length - 1; j >= 0; j--) {
             const e = enemies[j];
 
+            // NEU: Wenn diese Kugel DIESEN Gegner bereits getroffen hat, überspringe ihn!
+            if (b.hitEnemies.includes(e)) continue;
+
+            // Deine originale Hitbox-Abfrage
             if (b.x < e.x + e.size && b.x + b.size > e.x - e.size &&
                 b.y < e.y + e.size && b.y + b.size > e.y - e.size) {
+
+                // NEU: Gegner sofort auf die "Blacklist" dieser Kugel setzen
+                b.hitEnemies.push(e);
 
                 e.health -= b.damage;
 
@@ -1652,19 +1747,20 @@ function update() {
                     createExplosion(e.x, e.y, 20, e.color || '#ff4444', e.glow || '#ff0000', 4);
                     createExplosion(e.x, e.y, 6, '#ffaa00', '#ff6600', 2);
 
-                    // If miniboss: drop chest
+                    // If miniboss: drop chest AND the 25 explosion-crystals
                     if (e.type === 'MINIBOSS') {
-                        // spawn chest at boss position
                         chests.push({ x: e.x, y: e.y, opened: false });
                         createExplosion(e.x, e.y, 30, '#ffdd77', '#ffd700', 6);
+                        dropXpCrystal(e.x, e.y, e.dropCount || 25, e.xpValue || 500);
+                        
                         score += 2000;
                         enemies.splice(j, 1);
                         bulletRemoved = true;
                         break;
                     } else {
-                        // drop XP crystals based on xpValue
                         const drops = e.xpValue || 1;
-                        for (let k = 0; k < drops; k++) dropXpCrystal(e.x, e.y);
+                        dropXpCrystal(e.x, e.y, drops, drops); 
+                        
                         enemies.splice(j, 1);
                         score += 100 * (e.xpValue || 1);
                         bulletRemoved = true;
@@ -1672,27 +1768,52 @@ function update() {
                     }
                 }
 
+                // Wenn die Kugel KEIN Piercing hat, wird sie gelöscht
                 if (!b.piercing) {
                     bullets.splice(i, 1);
                     bulletRemoved = true;
+                    break; // Schleife für diesen Gegner abbrechen, Kugel ist weg
                 }
-                break;
             }
         }
 
         if (bulletRemoved) continue;
     }
 
-    // === Kollision: Gegner trifft Spieler ===
+// === Kollision: Gegner trifft Spieler (REPARIERT & DYNAMISCH) ===
     for (let i = enemies.length - 1; i >= 0; i--) {
         const e = enemies[i];
         const dist = Math.sqrt((e.x - player.x) ** 2 + (e.y - player.y) ** 2);
 
         if (dist < e.size + 12) {
-            player.health -= 10;
-            createExplosion(e.x, e.y, 8, '#ff4444', '#ff0000', 2);
-            enemies.splice(i, 1);
+            
+            // Schaden dynamisch anhand der Gegner-Werte bestimmen
+            let damageToPlayer = 10; // Standardwert für Flinke/Kleine
 
+            if (e.type === 'MINIBOSS') {
+                damageToPlayer = 40; // Boss teilt richtig aus
+            } else if (e.size > 20) { 
+                damageToPlayer = 30; // Große Tanks machen 30 Schaden
+            } else if (e.speed < 2.5) { 
+                damageToPlayer = 20; // Normale Mobs machen 20 Schaden
+            }
+
+            // Schaden abziehen
+            player.health -= damageToPlayer;
+            createExplosion(player.x, player.y, 8, '#ff4444', '#ff0000', 2);
+
+            // WICHTIG: Boss bleibt leben, normale Gegner platzen
+            if (e.type === 'MINIBOSS') {
+                // Knockback-Effekt: Schiebt den Spieler ein Stück weg, damit er nicht sofort wieder stirbt
+                const angle = Math.atan2(player.y - e.y, player.x - e.x);
+                player.x += Math.cos(angle) * 20;
+                player.y += Math.sin(angle) * 20;
+            } else {
+                // Normale Kamikaze-Gegner loeschen
+                enemies.splice(i, 1);
+            }
+
+            // Game Over Check
             if (player.health <= 0) {
                 player.health = 0;
                 gameState = 'GAMEOVER';
@@ -1701,8 +1822,8 @@ function update() {
         }
     }
 
-    // === XP-Kristalle: Magnet-Effekt + Einsammeln ===
-    const magnetRadius = 120;
+// === XP-Kristalle: Magnet-Effekt + Einsammeln (DYNAMISCH) ===
+    const magnetRadius = player.magnetRadius || 100; // Nutzt jetzt das Upgrade!
     const collectRadius = 15;
 
     for (let i = xpCrystals.length - 1; i >= 0; i--) {
@@ -2393,7 +2514,7 @@ function drawMenuButton() {
 
     ctx.restore();
 }
-
+// ===== MOBILE CONTROLS =====
 function drawMobileControls() {
     const joyX = joystickCenterX();
     const joyY = joystickCenterY();
@@ -2404,7 +2525,7 @@ function drawMobileControls() {
     ctx.strokeStyle = 'rgba(255, 255, 255, 0.35)';
     ctx.lineWidth = 2;
 
-    // Left joystick (movement)
+    // 1. Linker Joystick (Bewegung) - Bleibt sauber wie er war
     ctx.beginPath();
     ctx.arc(joyX, joyY, joystickRadius, 0, Math.PI * 2);
     ctx.fill();
@@ -2415,25 +2536,46 @@ function drawMobileControls() {
     ctx.fill();
     ctx.stroke();
 
-    // Right side aiming indicator (no fire button - auto-fire is always on)
-    const aimX = CANVAS_WIDTH - 100;
-    const aimY = CANVAS_HEIGHT / 2;
-    ctx.globalAlpha = 0.15;
-    ctx.strokeStyle = 'rgba(0, 255, 200, 0.2)';
-    ctx.lineWidth = 1;
+    // 2. Rechter Joystick (Zielen) - DYNAMISCH & RECHTS UNTEN
+    // Wenn aktiv: Zeichne dort wo der Finger ist. Wenn inaktiv: Standardposition rechts unten.
+    const aimX = touchFireActive ? touchFireCenterX : fireBtnCenterX();
+    const aimY = touchFireActive ? touchFireCenterY : fireBtnCenterY();
+
+    ctx.globalAlpha = 1; // Alpha separat regeln für geilen Look
+
+    // Äußerer Ring (Zielscheiben/Stick-Basis)
     ctx.beginPath();
-    ctx.arc(CANVAS_WIDTH - 80, aimY, 40, 0, Math.PI * 2);
+    ctx.arc(aimX, aimY, fireBtnRadius, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.03)';
+    ctx.fill();
+    ctx.strokeStyle = touchFireActive ? 'rgba(0, 255, 200, 0.5)' : 'rgba(255, 255, 255, 0.15)';
+    ctx.lineWidth = 2;
     ctx.stroke();
 
-    // Small crosshair hint
+    // Ein dezenter, kleinerer Innenring für die Optik
     ctx.beginPath();
-    ctx.moveTo(CANVAS_WIDTH - 95, aimY);
-    ctx.lineTo(CANVAS_WIDTH - 65, aimY);
-    ctx.moveTo(CANVAS_WIDTH - 80, aimY - 15);
-    ctx.lineTo(CANVAS_WIDTH - 80, aimY + 15);
+    ctx.arc(aimX, aimY, fireBtnRadius * 0.4, 0, Math.PI * 2);
+    ctx.strokeStyle = touchFireActive ? 'rgba(0, 255, 200, 0.2)' : 'rgba(255, 255, 255, 0.05)';
     ctx.stroke();
 
-    ctx.globalAlpha = 1;
+    // Der steuerbare Innenknopf (Knob)
+    const knobX = aimX + (touchFireActive ? touchFireX : 0);
+    const knobY = aimY + (touchFireActive ? touchFireY : 0);
+
+    ctx.beginPath();
+    ctx.arc(knobX, knobY, 22, 0, Math.PI * 2);
+    ctx.fillStyle = touchFireActive ? 'rgba(0, 255, 200, 0.6)' : 'rgba(255, 255, 255, 0.1)';
+    
+    // Cooler Neon-Glow-Effekt, wenn man zielt!
+    if (touchFireActive) {
+        ctx.shadowBlur = 15;
+        ctx.shadowColor = '#00ffcc';
+    }
+    
+    ctx.fill();
+    ctx.strokeStyle = touchFireActive ? 'rgba(255, 255, 255, 0.8)' : 'rgba(255, 255, 255, 0.2)';
+    ctx.stroke();
+
     ctx.restore();
 }
 
@@ -2830,6 +2972,7 @@ function gameLoop() {
             ctx.restore();
         }
         drawPlayer();
+        drawBossPointer();
         drawParticles();
         drawMenuButton();
 
@@ -3037,6 +3180,52 @@ function drawChestMenu() {
     ctx.fillText('Weiter', CANVAS_WIDTH / 2, by + bh / 2 + 8);
 
     ctx.textAlign = 'left';
+}
+
+// ===== BOSS POINTER =====
+function drawBossPointer() {
+    // Nur aktiv, wenn das Spiel läuft und der Miniboss existiert
+    if (gameState !== 'PLAYING') return;
+
+    const boss = enemies.find(e => e.type === 'MINIBOSS');
+    if (!boss) return;
+
+    // Position des Bosses relativ zum Bildschirm berechnen
+    const screenBossX = boss.x - cameraX + CANVAS_WIDTH / 2;
+    const screenBossY = boss.y - cameraY + CANVAS_HEIGHT / 2;
+
+    // Prüfen, ob der Boss außerhalb des sichtbaren Bildschirms ist (mit 20px Puffer)
+    const padding = 30;
+    if (screenBossX < padding || screenBossX > CANVAS_WIDTH - padding ||
+        screenBossY < padding || screenBossY > CANVAS_HEIGHT - padding) {
+
+        // Winkel vom Spieler (Bildschirmmitte) zum Boss berechnen
+        const angle = Math.atan2(screenBossY - CANVAS_HEIGHT / 2, screenBossX - CANVAS_WIDTH / 2);
+
+        // Pfeil am Bildschirmrand positionieren
+        const arrowX = CANVAS_WIDTH / 2 + Math.cos(angle) * (CANVAS_WIDTH / 2 - padding);
+        const arrowY = CANVAS_HEIGHT / 2 + Math.sin(angle) * (CANVAS_HEIGHT / 2 - padding);
+
+        // Pfeil zeichnen
+        ctx.save();
+        ctx.translate(arrowX, arrowY);
+        ctx.rotate(angle);
+
+        // Schicker Neon-Effekt (passend zu deinem Style)
+        ctx.shadowBlur = 15;
+        ctx.shadowColor = '#9900ff'; // Lila Boss-Farbe
+        ctx.fillStyle = '#cc99ff';
+
+        ctx.beginPath();
+        ctx.moveTo(15, 0);       // Spitze zeigt nach rechts (wegen rotate)
+        ctx.lineTo(-10, -10);    // Ecke oben links
+        ctx.lineTo(-5, 0);       // Einkerbung hinten Mitte
+        ctx.lineTo(-10, 10);     // Ecke unten links
+        ctx.closePath();
+        ctx.fill();
+
+        ctx.restore();
+    }
 }
 
 // ===== START GAME LOOP =====
