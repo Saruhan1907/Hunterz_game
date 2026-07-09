@@ -55,7 +55,7 @@ const CLASSES = {
         id: 2,
         name: 'Maschinengewehr',
         description: 'Dauerfeuer',
-        detail: 'Extrem hohe Feuerrate, solider Schaden',
+        detail: 'Hohe Feuerrate',
         fireRate: 80,   // Schneller ballern! (von 100)
         bulletSpeed: 11,  // Kugeln fliegen minimal schneller (von 10)
         bulletSize: 3,
@@ -68,7 +68,7 @@ const CLASSES = {
         id: 3,
         name: 'Schrotflinte',
         description: 'Flächenschaden',
-        detail: 'Verheerender Nahkampf-Schaden',
+        detail: 'Multishot',
         fireRate: 500,  // Feuerrate erhöht (von 600)
         bulletSpeed: 10,
         bulletSize: 3,
@@ -89,7 +89,7 @@ let selectedCharacter = null;
 const player = {
     x: CANVAS_WIDTH / 2,
     y: CANVAS_HEIGHT / 2,
-    size: 20,
+    size: 26,
     speed: 3.2,
     color: '#40e0d0',
     health: 100,
@@ -113,6 +113,14 @@ const player = {
     lifesteal: 0 // 0 = kein Lebensraub, 0.005 = 0.5%
 };
 
+// ===== IN-GAME SPIELFIGUR =====
+const playerSprite = new Image();
+playerSprite.src = 'assets/character1.png';
+
+// ===== MINIBOSS BILD =====
+const minibossSprite = new Image();
+minibossSprite.src = 'assets/miniboss1.png';
+
 // ===== TASTATUR-STATUS =====
 const keys = {
     w: false, a: false, s: false, d: false,
@@ -129,6 +137,7 @@ let minibossSpawned = false;
 let currentChest = null;
 let chestSelectedOption = null;
 let chestHoveredOption = null;
+let lastDamageSoundTime = 0;
 
 const CHEST_OPTIONS = [
     {
@@ -170,6 +179,7 @@ let cameraX = 0;
 let cameraY = 0;
 let lastShotTime = 0;
 let menuParticles = [];
+let screenDamageFlash=0;
 
 // ===== TIMER =====
 let gameTime = 0; // in Sekunden
@@ -203,6 +213,58 @@ function playSynth({ frequency = 440, type = 'square', duration = 0.12, volume =
     o.stop(now + duration + decay + 0.02);
 }
 
+function playBossScreamSound() {
+    ensureAudio(); // Nutzt dein bestehendes System
+    
+    // Wir erzeugen den Schrei durch zwei überlagerte, tief schwingende Sounds
+    // Das klingt sehr 8-Bit-artig, bedrohlich und passt perfekt zu deinem System.
+    
+    // Tiefer Ton 1
+    playSynth({ 
+        frequency: 80, 
+        type: 'sawtooth', 
+        duration: 1.0, 
+        volume: 0.25, 
+        attack: 0.05, 
+        decay: 0.5 
+    });
+    
+    // Tiefer Ton 2 (leicht verstimmt)
+    playSynth({ 
+        frequency: 75, 
+        type: 'square', 
+        duration: 1.0, 
+        volume: 0.18, 
+        attack: 0.05, 
+        decay: 0.5 
+    });
+}
+
+function playDamageSound() {
+    ensureAudio();
+    // Ein schnelles "Ugh" / "Thud" Geräusch:
+    // Ein tiefer Ton, der ganz schnell abfällt
+    playSynth({ 
+        frequency: 200, 
+        type: 'square', 
+        duration: 0.05, 
+        volume: 0.4, 
+        attack: 0.002, 
+        decay: 0.1 
+    });
+    // Ein zweiter, noch tieferer Impuls direkt danach für mehr Wucht
+    setTimeout(() => {
+        playSynth({ 
+            frequency: 100, 
+            type: 'sawtooth', 
+            duration: 0.08, 
+            volume: 0.3, 
+            attack: 0.001, 
+            decay: 0.15 
+        });
+    }, 30);
+}
+
 function playNoise({ duration = 0.3, volume = 0.6, filterFreq = 1200 } = {}) {
     ensureAudio();
     const now = audioCtx.currentTime;
@@ -227,7 +289,7 @@ function playNoise({ duration = 0.3, volume = 0.6, filterFreq = 1200 } = {}) {
 // Convenience sounds
 function playShootSound() {
     // short bright blip
-    playSynth({ frequency: 1200 + Math.random() * 200, type: 'square', duration: 0.06, volume: 0.25, attack: 0.002, decay: 0.03 });
+    playSynth({ frequency: 1100 + Math.random() * 150, type: 'square', duration: 0.03, volume: 0.05, attack: 0.001, decay: 0.02 });
 }
 
 function playEnemyDeathSound() {
@@ -1478,9 +1540,9 @@ function spawnMiniboss() {
     const size = 88; 
     const hp = 5000; 
     
-    // Zufällige Himmelsrichtung berechnen (Zufälliger Winkel im 360-Grad-Kreis)
+    // Zufällige Himmelsrichtung berechnen
     const randomAngle = Math.random() * Math.PI * 2;
-    const spawnDistance = 450; // Weit genug weg, um nicht direkt auf dem Spieler zu landen, aber sichtbar
+    const spawnDistance = 450; 
     
     const bx = player.x + Math.cos(randomAngle) * spawnDistance;
     const by = player.y + Math.sin(randomAngle) * spawnDistance;
@@ -1489,7 +1551,8 @@ function spawnMiniboss() {
         x: bx, 
         y: by, 
         size: size, 
-        speed: enemyBaseSpeed * 0.6, 
+        baseSize: size, // NEU: Wichtig für den pulsierenden Herzschlag-Effekt
+        speed: enemyBaseSpeed * 1.2, 
         color: '#aa44ff', 
         glow: '#ff88ff',
         angle: 0,
@@ -1498,7 +1561,11 @@ function spawnMiniboss() {
         maxHealth: hp,
         type: 'MINIBOSS',
         xpValue: 500, 
-        dropCount: 25  
+        dropCount: 25,
+        // NEU: Boss-Attacken-Werte
+        lastAttackTime: Date.now() - 3000, 
+        lastDamageTime: 0,
+        attackCooldown: 3000 // Greift alle 3 Sekunden an (3000 Millisekunden)
     });
     
     minibossSpawned = true;
@@ -1600,7 +1667,7 @@ function update() {
     gridOffsetX = cameraX;
     gridOffsetY = cameraY;
 
-    if (!minibossSpawned && gameState === 'PLAYING' && gameTime >= 300) {
+    if (!minibossSpawned && gameState === 'PLAYING' && gameTime >= 210) {
         spawnMiniboss();
     }
 
@@ -1630,7 +1697,7 @@ function update() {
         // PRÜFUNG: Trifft eine gegnerische Kugel den Spieler?
         if (b.isEnemyBullet) {
             const distToPlayer = Math.sqrt((b.x - player.x) ** 2 + (b.y - player.y) ** 2);
-            // player.size + b.size ist die Berührungs-Hitbox
+            // miniboss angplayer.size + b.size ist die Berührungs-Hitbox
             if (distToPlayer < (player.size || 12) + b.size) {
                 player.health -= b.damage;
                 createExplosion(player.x, player.y, 10, '#ff0055', '#ff0000', 3);
@@ -1647,48 +1714,63 @@ function update() {
         }
     }
 // === Gegner bewegen & Boss Angriffe ===
-    for (let i = 0; i < enemies.length; i++) {
-        const e = enemies[i];
-        const dx = player.x - e.x;
-        const dy = player.y - e.y;
-        const length = Math.sqrt(dx * dx + dy * dy);
-        if (length > 0) {
+for (let i = 0; i < enemies.length; i++) {
+    const e = enemies[i];
+    const dx = player.x - e.x;
+    const dy = player.y - e.y;
+    const length = Math.sqrt(dx * dx + dy * dy);
+    
+    // NEU: Boss bleibt während der gesamten 1000ms "Schreiphase" stehen
+    const isScreaming = (Date.now() - (e.lastAttackTime || 0)) < 1000;
+    
+    if (length > 0) {
+        if (e.type !== 'MINIBOSS' || !isScreaming) {
             e.x += (dx / length) * e.speed;
             e.y += (dy / length) * e.speed;
         }
+    }
+    
+    if (e.type !== 'MINIBOSS') {
         e.angle += e.rotSpeed;
+    } else {
+        e.angle = Math.atan2(dy, dx); 
+    }
 
-        // Miniboss Fernkampf-Logik
-        if (e.type === 'MINIBOSS') {
-            if (!e.lastShotTime) e.lastShotTime = Date.now();
+    // Miniboss Angriff-Logik
+    if (e.type === 'MINIBOSS') {
+        if (!e.lastAttackTime) e.lastAttackTime = Date.now();
+        if (!e.lastDamageTime) e.lastDamageTime = 0; 
+        const now = Date.now();
 
-            const now = Date.now();
-            // Schießt alle 2000ms (2 Sekunden)
-            if (now - e.lastShotTime > 2000) {
-                e.lastShotTime = now;
+        // 1. Schrei-Timer (Alle 6 Sekunden)
+        if (now - e.lastAttackTime > 6000) {
+            e.lastAttackTime = now;
+            try { playBossScreamSound(); } catch (err) {}
+        }
 
-                const angleToPlayer = Math.atan2(dy, dx);
-                const bossBulletSpeed = 4; // Schön ausweichbar
+        // 2. Schaden-Prüfung (Innerhalb der IF-Bedingung, also innerhalb der Schleife!)
+        const timeSinceAttack = now - e.lastAttackTime;
+        const isScreamingNow = timeSinceAttack > 0 && timeSinceAttack < 1000;
 
-                // Rote Kugel in die Projektil-Liste einspeisen
-                bullets.push({
-                    x: e.x,
-                    y: e.y,
-                    size: 8,
-                    vx: Math.cos(angleToPlayer) * bossBulletSpeed,
-                    vy: Math.sin(angleToPlayer) * bossBulletSpeed,
-                    damage: 15, // Macht 15 Schaden bei Treffer
-                    piercing: false,
-                    isEnemyBullet: true, // Markierung für die Projektilschleife
-                    color: '#ff0055',
-                    glow: '#ff0000',
-                    startX: e.x,
-                    startY: e.y,
-                    life: 250
-                });
+        if (isScreamingNow) {
+            const distToPlayer = Math.sqrt((player.x - e.x)**2 + (player.y - e.y)**2);
+            const angleToPlayer = Math.atan2(player.y - e.y, player.x - e.x);
+            
+            let angleDiff = Math.abs(angleToPlayer - e.angle);
+            if (angleDiff > Math.PI) angleDiff = 2 * Math.PI - angleDiff;
+
+            if (distToPlayer < 350 && angleDiff < Math.PI / 6) {
+                if (now - e.lastDamageTime > 100) {
+                    player.health -= 2.5; 
+                    e.lastDamageTime = now;
+                    screenDamageFlash = 0.4;
+                    createExplosion(player.x, player.y, 5, '#ff4400', '#ff0000', 1);
+                }
             }
         }
-    }
+    } // Ende IF MINIBOSS
+} // Ende der for-Schleife (Hier fehlte die Klammer!)
+
     // === Chest pickup check ===
     for (let i = 0; i < chests.length; i++) {
         const ch = chests[i];
@@ -1781,46 +1863,49 @@ function update() {
     }
 
 // === Kollision: Gegner trifft Spieler (REPARIERT & DYNAMISCH) ===
-    for (let i = enemies.length - 1; i >= 0; i--) {
-        const e = enemies[i];
-        const dist = Math.sqrt((e.x - player.x) ** 2 + (e.y - player.y) ** 2);
+for (let i = enemies.length - 1; i >= 0; i--) {
+    const e = enemies[i];
+    const dist = Math.sqrt((e.x - player.x) ** 2 + (e.y - player.y) ** 2);
 
-        if (dist < e.size + 12) {
-            
-            // Schaden dynamisch anhand der Gegner-Werte bestimmen
-            let damageToPlayer = 10; // Standardwert für Flinke/Kleine
+    if (dist < e.size + 12) {
+        // Schaden dynamisch anhand der Gegner-Werte bestimmen
+        let damageToPlayer = 10; 
+        if (e.type === 'MINIBOSS') {
+            damageToPlayer = 40; 
+        } else if (e.size > 20) { 
+            damageToPlayer = 30; 
+        } else if (e.speed < 2.5) { 
+            damageToPlayer = 20; 
+        }
 
-            if (e.type === 'MINIBOSS') {
-                damageToPlayer = 40; // Boss teilt richtig aus
-            } else if (e.size > 20) { 
-                damageToPlayer = 30; // Große Tanks machen 30 Schaden
-            } else if (e.speed < 2.5) { 
-                damageToPlayer = 20; // Normale Mobs machen 20 Schaden
-            }
+        // Schaden abziehen
+        player.health -= damageToPlayer;
+        
+        // --- HIER: Rotes Blinken UND Sound abspielen ---
+        screenDamageFlash = 0.4;
+        // --- HIER: Sound mit 100ms Cooldown ---
+        const now = Date.now();
+        if (now - lastDamageSoundTime > 100) {
+            try { playDamageSound(); } catch (err) {}
+            lastDamageSoundTime = now;
+        }
+        createExplosion(player.x, player.y, 8, '#ff4444', '#ff0000', 2);
 
-            // Schaden abziehen
-            player.health -= damageToPlayer;
-            createExplosion(player.x, player.y, 8, '#ff4444', '#ff0000', 2);
+        if (e.type === 'MINIBOSS') {
+            const angle = Math.atan2(player.y - e.y, player.x - e.x);
+            player.x += Math.cos(angle) * 20;
+            player.y += Math.sin(angle) * 20;
+        } else {
+            enemies.splice(i, 1);
+        }
 
-            // WICHTIG: Boss bleibt leben, normale Gegner platzen
-            if (e.type === 'MINIBOSS') {
-                // Knockback-Effekt: Schiebt den Spieler ein Stück weg, damit er nicht sofort wieder stirbt
-                const angle = Math.atan2(player.y - e.y, player.x - e.x);
-                player.x += Math.cos(angle) * 20;
-                player.y += Math.sin(angle) * 20;
-            } else {
-                // Normale Kamikaze-Gegner loeschen
-                enemies.splice(i, 1);
-            }
-
-            // Game Over Check
-            if (player.health <= 0) {
-                player.health = 0;
-                gameState = 'GAMEOVER';
-                if (spawnTimerId) clearInterval(spawnTimerId);
-            }
+        if (player.health <= 0) {
+            player.health = 0;
+            gameState = 'GAMEOVER';
+            if (spawnTimerId) clearInterval(spawnTimerId);
         }
     }
+}
 
 // === XP-Kristalle: Magnet-Effekt + Einsammeln (DYNAMISCH) ===
     const magnetRadius = player.magnetRadius || 100; // Nutzt jetzt das Upgrade!
@@ -1893,34 +1978,60 @@ function drawGrid() {
 
 function drawPlayer() {
     ctx.save();
-    ctx.translate(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2);
-    ctx.rotate(player.angle);
-    const s = player.size;
+    ctx.translate(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2); // Kamera bleibt zentriert
 
-    ctx.shadowBlur = 20;
-    ctx.shadowColor = '#00ffcc';
+    // Bewegungserkennung
+    const dx = player.x - (player.lastX || player.x);
+    const dy = player.y - (player.lastY || player.y);
+    const isMoving = Math.abs(dx) > 0.1 || Math.abs(dy) > 0.1;
 
-    ctx.beginPath();
-    ctx.moveTo(s, 0);
-    ctx.lineTo(-s * 0.7, -s * 0.6);
-    ctx.lineTo(-s * 0.3, 0);
-    ctx.lineTo(-s * 0.7, s * 0.6);
-    ctx.closePath();
+    player.lastX = player.x;
+    player.lastY = player.y;
+    
+    // Wackel-Effekt
+    const wobbleAngle = isMoving ? Math.sin(Date.now() / 120) * 0.15 : 0; 
+    const bobY = isMoving ? Math.abs(Math.sin(Date.now() / 120)) * 4 : 0; 
+    
+    // ===== HIER IST DER FIX =====
+    // Da dein Bild von Natur aus nach LINKS guckt, müssen wir es spiegeln, 
+    // wenn der Winkel (player.angle) nach RECHTS zeigt (cos > 0).
+    const faceRight = Math.cos(player.angle) > 0; 
 
-    const grad = ctx.createLinearGradient(-s, -s, s, s);
-    grad.addColorStop(0, '#00ffcc');
-    grad.addColorStop(1, '#0088aa');
-    ctx.fillStyle = grad;
-    ctx.fill();
+    // Transformationen
+    ctx.translate(0, -bobY);
+    ctx.rotate(wobbleAngle);
+    
+    if (faceRight) {
+        ctx.scale(-1, 1); // Spiegelt das Bild horizontal
+    }
+    // ============================
 
-    ctx.shadowBlur = 30;
-    ctx.shadowColor = '#00ffcc';
-    ctx.strokeStyle = '#00ffcc';
-    ctx.lineWidth = 2;
-    ctx.stroke();
+    const imgW = 64;
+    const imgH = 94;
 
-    ctx.shadowBlur = 0;
+    ctx.shadowBlur = 15;
+    ctx.shadowColor = '#00ffcc'; 
+
+    // Spielerbild zeichnen
+    if (playerSprite.complete && playerSprite.naturalWidth !== 0) {
+        ctx.drawImage(playerSprite, -imgW / 2, -imgH * 0.6, imgW, imgH);
+    } else {
+        ctx.fillStyle = 'gray';
+        ctx.fillRect(-imgW / 2, -imgH * 0.6, imgW, imgH);
+    }
+
     ctx.restore();
+
+    // === HITBOX-TESTER (Zum Testen einfach die /* und */ löschen!) ===
+    /*
+    ctx.save();
+    ctx.strokeStyle = 'rgba(255, 0, 0, 0.8)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, player.size, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+    */
 }
 
 function drawEnemy(e) {
@@ -1931,6 +2042,68 @@ function drawEnemy(e) {
     ctx.rotate(e.angle);
     const s = e.size;
 
+    // ===== NEU: MINIBOSS BILD & HERZSCHLAG & SCHREI-EFFEKT =====
+    if (e.type === 'MINIBOSS') {
+        const hpRatio = e.health / e.maxHealth;
+        const pulseSpeed = 100 + (hpRatio * 200); 
+        const pulse = Math.sin(Date.now() / pulseSpeed) * 0.15; 
+        const currentSize = e.baseSize * (1 + pulse); 
+        const imgW = currentSize * 2; 
+        const imgH = currentSize * 2;
+
+        // Prüfen, ob der Boss gerade "schreit" (Dauer jetzt 1000ms)
+        const timeSinceAttack = Date.now() - (e.lastAttackTime || 0);
+        const isScreaming = timeSinceAttack > 0 && timeSinceAttack < 1000;
+
+        // 1. Schrei-Kegel mit "Schallwellen-Effekt"
+if (isScreaming) {
+    ctx.save();
+    
+    // Kegel-Grundform
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(Math.cos(-Math.PI / 6) * 350, Math.sin(-Math.PI / 6) * 350);
+    ctx.lineTo(Math.cos(Math.PI / 6) * 350, Math.sin(Math.PI / 6) * 350);
+    ctx.closePath();
+    ctx.fillStyle = 'rgba(255, 0, 0, 0.25)';
+    ctx.fill();
+
+    // SCHALLWELLEN-EFFEKT:
+    // Wir zeichnen 3 weiße Bögen, die vom Boss weg nach außen driften
+    const time = Date.now() % 1000; // 0 bis 1000ms
+    const waveProgress = time / 1000; // Fortschritt 0.0 bis 1.0
+
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
+    ctx.lineWidth = 2;
+
+    for (let i = 1; i <= 3; i++) {
+        // Die Welle startet beim Boss und wandert bis zum Ende (400px)
+        const waveDist = (waveProgress * 350 + (i * 130)) % 350;
+        
+        ctx.beginPath();
+        // Wir zeichnen einen Bogen, der den Kegel schneidet
+        ctx.arc(0, 0, waveDist, -Math.PI / 6, Math.PI / 6);
+        ctx.stroke();
+    }
+    ctx.restore();
+}
+
+        // 2. Boss zeichnen
+        ctx.shadowBlur = isScreaming ? 60 : 40;
+        ctx.shadowColor = isScreaming ? '#ff0000' : (e.glow || '#9900ff');
+
+        if (minibossSprite.complete && minibossSprite.naturalWidth !== 0) {
+            ctx.drawImage(minibossSprite, -imgW / 2, -imgH / 2, imgW, imgH);
+        } else {
+            ctx.fillStyle = e.color || '#9900ff';
+            ctx.fillRect(-imgW / 2, -imgH / 2, imgW, imgH);
+        }
+        
+        ctx.restore();
+        return; 
+    }
+
+    // --- ALTE LOGIK FÜR NORMALE GEGNER ---
     let colorStart = '#ff6666';
     let colorMid = '#ff3333';
     let colorEnd = '#880000';
@@ -1946,12 +2119,7 @@ function drawEnemy(e) {
         colorMid = '#ff00ff';
         colorEnd = '#cc00cc';
         shadowColor = '#ff00ff';
-    } else if (e.type === 'MINIBOSS') {
-        colorStart = '#cc99ff';
-        colorMid = '#9900ff';
-        colorEnd = '#550088';
-        shadowColor = '#9900ff';
-    }
+    } 
 
     ctx.shadowBlur = 15;
     ctx.shadowColor = shadowColor;
@@ -2486,7 +2654,7 @@ function drawMenu() {
 function getClassStats(klasse) {
     if (klasse.id === 1) return ['Schaden: 100 (1 Hit)', 'Feuerrate: Langsam', 'Durchschlag: Ja'];
     if (klasse.id === 2) return ['Schaden: 20 (5 Hits)', 'Feuerrate: Sehr schnell', 'Dauerfeuer: Ja'];
-    if (klasse.id === 3) return ['Schaden: 30 pro Kugel', 'Reichweite: Kurz', '4 Kugeln pro Schuss'];
+    if (klasse.id === 3) return ['Schaden: 30 pro Kugel', 'Reichweite: Kurz', '5 Kugeln pro Schuss'];
     return [];
 }
 
@@ -2954,6 +3122,16 @@ function gameLoop() {
     else if (gameState === 'PLAYING') {
         ctx.fillStyle = '#0a0a1a';
         ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+        
+        // 1. WELT-ZOOM STARTEN (Nur wenn mobil gespielt wird)
+        ctx.save(); 
+        if (isMobile) {
+            ctx.translate(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2);
+            ctx.scale(0.75, 0.75); // 0.75 bedeutet 75% Größe = weiter herausgezoomt!
+            ctx.translate(-CANVAS_WIDTH / 2, -CANVAS_HEIGHT / 2);
+        }
+
+        // Alles was hier drinnen steht, wird herausgezoomt
         drawGrid();
         drawXpCrystals();
         for (const e of enemies) drawEnemy(e);
@@ -2974,6 +3152,11 @@ function gameLoop() {
         drawPlayer();
         drawBossPointer();
         drawParticles();
+
+        // 2. WELT-ZOOM BEENDEN (Die UI soll normal groß gezeichnet werden)
+        ctx.restore(); 
+
+        // Ab hier wird alles wieder in normaler Größe gezeichnet (Schnittstellen & UI)
         drawMenuButton();
 
         // === XP-Balken (ganz oben, 8px, Neon-Blau/Lila-Verlauf) ===
@@ -3059,6 +3242,26 @@ function gameLoop() {
         ctx.textAlign = 'left';
 
         if (isMobile) drawMobileControls();
+
+        // NEU: Roter Blink-Effekt am Rand (nachdem alles andere gezeichnet wurde)
+        if (screenDamageFlash > 0) {
+            ctx.save();
+            ctx.setTransform(1, 0, 0, 1, 0, 0); // Kamera-Transformation ignorieren
+            
+            const gradient = ctx.createRadialGradient(
+                CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, CANVAS_WIDTH * 0.2,
+                CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, CANVAS_WIDTH * 0.6
+            );
+            gradient.addColorStop(0, 'rgba(255, 0, 0, 0)');
+            gradient.addColorStop(1, `rgba(255, 0, 0, ${screenDamageFlash})`);
+            
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+            ctx.restore();
+            
+            screenDamageFlash -= 0.03; // Fade-Out Speed
+            if (screenDamageFlash < 0) screenDamageFlash = 0;
+        }
     }
     else if (gameState === 'PAUSED') {
         ctx.fillStyle = '#0a0a1a';
