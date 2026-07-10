@@ -14,11 +14,14 @@ function resizeCanvas() {
 resizeCanvas();
 window.addEventListener('resize', resizeCanvas);
 
+// Weltgröße festlegen
+const WORLD_WIDTH = 6000;
+const WORLD_HEIGHT = 6000;
+
 canvas.addEventListener('touchstart', handleTouchStart, { passive: false });
 canvas.addEventListener('touchmove', handleTouchMove, { passive: false });
 canvas.addEventListener('touchend', handleTouchEnd, { passive: false });
 canvas.addEventListener('touchcancel', handleTouchEnd, { passive: false });
-
 // Mobile-Erkennung (wird erst bei erstem Touch-Event aktiv)
 let isMobile = false;
 
@@ -85,33 +88,41 @@ const CLASSES = {
 let selectedClass = null;
 let selectedCharacter = null;
 
-// ===== SPIELER =====
-const player = {
-    x: CANVAS_WIDTH / 2,
-    y: CANVAS_HEIGHT / 2,
-    size: 26,
-    speed: 3.2,
-    color: '#40e0d0',
-    health: 100,
-    maxHealth: 100,
-    angle: 0,
-    vx: 0,
-    vy: 0,
-    xpMultiplier: 1.0,
-    multishot: false,
-    // XP & Level
-    level: 1,
-    xp: 0,
-    xpToNext: 50,
-    // Upgrade-Modifikatoren
-    magnetRadius: 100,
-    damageMultiplier: 1.0,
-    speedMultiplier: 1.0,
-    fireRateMultiplier: 1.0,
-    bulletSpeedMultiplier: 1.0,
-    projectileMultiplier: 1.0,
-    lifesteal: 0 // 0 = kein Lebensraub, 0.005 = 0.5%
-};
+// Oben im Code, bei deinen Konstanten (sicherstellen, dass WORLD_WIDTH/HEIGHT hier schon definiert sind)
+const SPAWN_PADDING = 100; 
+
+let player = {}; // Globale Variable
+
+function initPlayer() {
+    const SPAWN_PADDING = 100;
+    player = {
+        x: SPAWN_PADDING + Math.random() * (WORLD_WIDTH - 2 * SPAWN_PADDING),
+        y: SPAWN_PADDING + Math.random() * (WORLD_HEIGHT - 2 * SPAWN_PADDING),
+        size: 26,
+        speed: 3.2,
+        color: '#40e0d0',
+        health: 100,
+        maxHealth: 100,
+        angle: 0,
+        vx: 0,
+        vy: 0,
+        xpMultiplier: 1.0,
+        multishot: false,
+        // XP & Level
+        level: 1,
+        xp: 0,
+        xpToNext: 50,
+        // Upgrade-Modifikatoren
+        magnetRadius: 100,
+        damageMultiplier: 1.0,
+        speedMultiplier: 1.0,
+        fireRateMultiplier: 1.0,
+        bulletSpeedMultiplier: 1.0,
+        projectileMultiplier: 1.0,
+        lifesteal: 0 
+    };
+    console.log("Spieler gespawnt bei:", player.x, player.y);
+}
 
 // ===== IN-GAME SPIELFIGUR =====
 const playerSprite = new Image();
@@ -127,17 +138,7 @@ const keys = {
     up: false, down: false, left: false, right: false
 };
 
-// ===== LISTEN =====
-let bullets = [];
-let enemies = [];
-let particles = [];
-let xpCrystals = [];
-let chests = [];
-let minibossSpawned = false;
-let currentChest = null;
-let chestSelectedOption = null;
-let chestHoveredOption = null;
-let lastDamageSoundTime = 0;
+
 
 const CHEST_OPTIONS = [
     {
@@ -152,20 +153,10 @@ const CHEST_OPTIONS = [
     }
 ];
 
-// ===== MAUS =====
-let mouseX = CANVAS_WIDTH / 2;
-let mouseY = CANVAS_HEIGHT / 2;
-let mouseDown = false;
-
-// ===== HOVER-STATUS =====
-let hoveredButton = null; // 'start', 'options', 'character', 'weapon'
-let hoveredCharIndex = -1;
-let hoveredWeaponIndex = -1;
-let levelUpHoveredOption = -1;
-
 // ===== CHARAKTER-BILD =====
 const charImage_waffenspezialist = new Image();
 charImage_waffenspezialist.src = 'assets/waffenspezialist.png';
+
 
 // ===== SPIEL-VARIABLEN =====
 let score = 0;
@@ -188,140 +179,36 @@ let lastTimerUpdate = 0;
 // ===== AUDIO (Web Audio API) =====
 let audioCtx = null;
 let masterGain = null;
-function ensureAudio() {
-    if (audioCtx) return;
-    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    masterGain = audioCtx.createGain();
-    masterGain.gain.value = 0.7;
-    masterGain.connect(audioCtx.destination);
-}
+let masterVolume = 0.5; // Startlautstärke (50%)
+let isDraggingSlider = false; // Wird wahr, wenn man den Regler zieht
+let isDraggingVolume = false;
 
-function playSynth({ frequency = 440, type = 'square', duration = 0.12, volume = 0.5, attack = 0.005, decay = 0.08, detune = 0 } = {}) {
-    ensureAudio();
-    const now = audioCtx.currentTime;
-    const o = audioCtx.createOscillator();
-    const g = audioCtx.createGain();
-    o.type = type;
-    o.frequency.setValueAtTime(frequency, now);
-    o.detune.value = detune;
-    g.gain.setValueAtTime(0.0001, now);
-    g.gain.linearRampToValueAtTime(volume, now + attack);
-    g.gain.exponentialRampToValueAtTime(0.0001, now + duration + decay);
-    o.connect(g);
-    g.connect(masterGain);
-    o.start(now);
-    o.stop(now + duration + decay + 0.02);
-}
+// ===== MAUS =====
+let mouseX = CANVAS_WIDTH / 2;
+let mouseY = CANVAS_HEIGHT / 2;
+let mouseDown = false;
 
-function playBossScreamSound() {
-    ensureAudio(); // Nutzt dein bestehendes System
-    
-    // Wir erzeugen den Schrei durch zwei überlagerte, tief schwingende Sounds
-    // Das klingt sehr 8-Bit-artig, bedrohlich und passt perfekt zu deinem System.
-    
-    // Tiefer Ton 1
-    playSynth({ 
-        frequency: 80, 
-        type: 'sawtooth', 
-        duration: 1.0, 
-        volume: 0.25, 
-        attack: 0.05, 
-        decay: 0.5 
-    });
-    
-    // Tiefer Ton 2 (leicht verstimmt)
-    playSynth({ 
-        frequency: 75, 
-        type: 'square', 
-        duration: 1.0, 
-        volume: 0.18, 
-        attack: 0.05, 
-        decay: 0.5 
-    });
-}
+// ===== HOVER-STATUS =====
+let hoveredButton = null; // 'start', 'options', 'character', 'weapon'
+let hoveredCharIndex = -1;
+let hoveredWeaponIndex = -1;
+let levelUpHoveredOption = -1;
 
-function playDamageSound() {
-    ensureAudio();
-    // Ein schnelles "Ugh" / "Thud" Geräusch:
-    // Ein tiefer Ton, der ganz schnell abfällt
-    playSynth({ 
-        frequency: 200, 
-        type: 'square', 
-        duration: 0.05, 
-        volume: 0.4, 
-        attack: 0.002, 
-        decay: 0.1 
-    });
-    // Ein zweiter, noch tieferer Impuls direkt danach für mehr Wucht
-    setTimeout(() => {
-        playSynth({ 
-            frequency: 100, 
-            type: 'sawtooth', 
-            duration: 0.08, 
-            volume: 0.3, 
-            attack: 0.001, 
-            decay: 0.15 
-        });
-    }, 30);
-}
+// ===== LISTEN =====
+let bullets = [];
+let enemies = [];
+let particles = [];
+let xpCrystals = [];
+let chests = [];
+let minibossSpawned = false;
+let currentChest = null;
+let chestSelectedOption = null;
+let chestHoveredOption = null;
+let lastDamageSoundTime = 0;
+let sunrayRotation = 0;
+let lastHoveredElement = null;
 
-function playNoise({ duration = 0.3, volume = 0.6, filterFreq = 1200 } = {}) {
-    ensureAudio();
-    const now = audioCtx.currentTime;
-    const bufferSize = Math.floor(audioCtx.sampleRate * duration);
-    const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
-    const data = buffer.getChannelData(0);
-    for (let i = 0; i < bufferSize; i++) data[i] = (Math.random() * 2 - 1) * 0.5;
-    const src = audioCtx.createBufferSource();
-    src.buffer = buffer;
-    const f = audioCtx.createBiquadFilter();
-    f.type = 'bandpass';
-    f.frequency.setValueAtTime(filterFreq, now);
-    const g = audioCtx.createGain();
-    g.gain.setValueAtTime(volume, now);
-    src.connect(f);
-    f.connect(g);
-    g.connect(masterGain);
-    src.start(now);
-    src.stop(now + duration + 0.02);
-}
 
-// Convenience sounds
-function playShootSound() {
-    // short bright blip
-    playSynth({ frequency: 1100 + Math.random() * 150, type: 'square', duration: 0.03, volume: 0.05, attack: 0.001, decay: 0.02 });
-}
-
-function playEnemyDeathSound() {
-    // snappy noise + drop
-    playNoise({ duration: 0.12, volume: 0.35, filterFreq: 900 });
-    setTimeout(() => playSynth({ frequency: 400 + Math.random() * 200, type: 'triangle', duration: 0.18, volume: 0.22, decay: 0.08 }), 20);
-}
-
-function playXpSound() {
-    playSynth({ frequency: 900 + Math.random() * 300, type: 'sine', duration: 0.12, volume: 0.18, decay: 0.06 });
-}
-
-function playChestOpenSound() {
-    // arpeggio-like stack
-    playSynth({ frequency: 1000, type: 'sawtooth', duration: 0.12, volume: 0.28, decay: 0.06 });
-    setTimeout(() => playSynth({ frequency: 1400, type: 'sawtooth', duration: 0.12, volume: 0.22, decay: 0.06 }), 70);
-    setTimeout(() => playSynth({ frequency: 1800, type: 'sine', duration: 0.18, volume: 0.26, decay: 0.12 }), 140);
-}
-
-function playLevelUpSound() {
-    try {
-        ensureAudio();
-        const sequence = [900, 1080, 1260, 1440];
-        sequence.forEach((freq, index) => {
-            setTimeout(() => {
-                playSynth({ frequency: freq, type: 'square', duration: 0.1, volume: 0.3, decay: 0.05 });
-            }, index * 70);
-        });
-    } catch (err) {
-        // ignore audio errors
-    }
-}
 
 // ===== LEVEL-UP =====
 let levelUpOptions = [];
@@ -370,6 +257,118 @@ const pauseMenuBtn = {
     w: 220,
     h: 50
 };
+
+// ===== AUDIO (Web Audio API) =====
+function ensureAudio() {
+    try {
+        if (!audioCtx) {
+            const AudioContext = window.AudioContext || window.webkitAudioContext;
+            if (!AudioContext) return false;
+            audioCtx = new AudioContext();
+            masterGain = audioCtx.createGain();
+            masterGain.gain.value = masterVolume;
+            masterGain.connect(audioCtx.destination);
+        }
+        // Ganz wichtig: AudioContext "aufwecken", falls der Browser ihn blockiert hat
+        if (audioCtx.state === 'suspended') {
+            audioCtx.resume();
+        }
+        return true;
+    } catch (e) {
+        console.warn("Audio blockiert:", e);
+        return false;
+    }
+}
+
+function setMasterVolume(v) {
+    masterVolume = Math.max(0, Math.min(1, v));
+    if (masterGain && audioCtx) {
+        try {
+            masterGain.gain.setTargetAtTime(masterVolume, audioCtx.currentTime, 0.1);
+        } catch(e) {}
+    }
+}
+
+function playSynth({ frequency = 440, type = 'square', duration = 0.12, volume = 0.5, attack = 0.005, decay = 0.08, detune = 0 } = {}) {
+    if (!ensureAudio() || !audioCtx) return;
+    try {
+        const now = audioCtx.currentTime;
+        const o = audioCtx.createOscillator();
+        const g = audioCtx.createGain();
+        o.type = type;
+        o.frequency.setValueAtTime(frequency, now);
+        o.detune.value = detune;
+        g.gain.setValueAtTime(0.0001, now);
+        g.gain.linearRampToValueAtTime(volume * masterVolume, now + attack);
+        g.gain.exponentialRampToValueAtTime(0.0001, now + duration + decay);
+        o.connect(g);
+        g.connect(masterGain);
+        o.start(now);
+        o.stop(now + duration + decay + 0.02);
+    } catch(e) {}
+}
+
+function playNoise({ duration = 0.3, volume = 0.6, filterFreq = 1200 } = {}) {
+    if (!ensureAudio() || !audioCtx) return;
+    try {
+        const now = audioCtx.currentTime;
+        const bufferSize = Math.floor(audioCtx.sampleRate * duration);
+        const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+        const data = buffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) data[i] = (Math.random() * 2 - 1) * 0.5;
+        const src = audioCtx.createBufferSource();
+        src.buffer = buffer;
+        const f = audioCtx.createBiquadFilter();
+        f.type = 'bandpass';
+        f.frequency.setValueAtTime(filterFreq, now);
+        const g = audioCtx.createGain();
+        g.gain.setValueAtTime(volume * masterVolume, now);
+        src.connect(f);
+        f.connect(g);
+        g.connect(masterGain);
+        src.start(now);
+        src.stop(now + duration + 0.02);
+    } catch(e) {}
+}
+
+// UI SOUNDS
+function playHoverSound() {
+    playSynth({ frequency: 600, type: 'sine', duration: 0.02, volume: 0.1, attack: 0.001 });
+}
+function playClickSound() {
+    playSynth({ frequency: 300, type: 'square', duration: 0.08, volume: 0.2, attack: 0.001, decay: 0.05 });
+}
+
+// GAME SOUNDS
+function playBossScreamSound() {
+    playSynth({ frequency: 80, type: 'sawtooth', duration: 1.0, volume: 0.25, attack: 0.05, decay: 0.5 });
+    playSynth({ frequency: 75, type: 'square', duration: 1.0, volume: 0.18, attack: 0.05, decay: 0.5 });
+}
+function playDamageSound() {
+    playSynth({ frequency: 200, type: 'square', duration: 0.05, volume: 0.4, attack: 0.002, decay: 0.1 });
+    setTimeout(() => playSynth({ frequency: 100, type: 'sawtooth', duration: 0.08, volume: 0.3, attack: 0.001, decay: 0.15 }), 30);
+}
+function playShootSound() {
+    playSynth({ frequency: 1100 + Math.random() * 150, type: 'square', duration: 0.03, volume: 0.05, attack: 0.001, decay: 0.02 });
+}
+function playEnemyDeathSound() {
+    playNoise({ duration: 0.12, volume: 0.35, filterFreq: 900 });
+    setTimeout(() => playSynth({ frequency: 400 + Math.random() * 200, type: 'triangle', duration: 0.18, volume: 0.22, decay: 0.08 }), 20);
+}
+function playXpSound() {
+    playSynth({ frequency: 900 + Math.random() * 300, type: 'sine', duration: 0.12, volume: 0.18, decay: 0.06 });
+}
+function playChestOpenSound() {
+    playSynth({ frequency: 1000, type: 'sawtooth', duration: 0.12, volume: 0.28, decay: 0.06 });
+    setTimeout(() => playSynth({ frequency: 1400, type: 'sawtooth', duration: 0.12, volume: 0.22, decay: 0.06 }), 70);
+    setTimeout(() => playSynth({ frequency: 1800, type: 'sine', duration: 0.18, volume: 0.26, decay: 0.12 }), 140);
+}
+function playLevelUpSound() {
+    const sequence = [900, 1080, 1260, 1440];
+    sequence.forEach((freq, index) => {
+        setTimeout(() => playSynth({ frequency: freq, type: 'square', duration: 0.1, volume: 0.3, decay: 0.05 }), index * 70);
+    });
+}
 
 // ===== MAIN MENÜ PARTIKEL =====
 let mainMenuParticles = [];
@@ -965,20 +964,33 @@ function touchShoot() {
 window.addEventListener('keydown', (e) => {
     const key = e.key.toLowerCase();
 
+    // 1. ESCAPE-LOGIK (Die wichtigste, zuerst!)
+    if (key === 'escape') {
+        playClickSound(); // Sound nur einmal abspielen
+        
+        if (gameState === 'OPTIONS') {
+            gameState = window.previousGameState || 'MAIN_MENU';
+            if (gameState === 'MAIN_MENU') initMainMenuParticles();
+        } 
+        else if (gameState === 'PLAYING') {
+            gameState = 'PAUSED';
+        } 
+        else if (gameState === 'PAUSED') {
+            gameState = 'PLAYING';
+        }
+        // Falls wir in einem Auswahlmenü sind, gehen wir zurück
+        else if (gameState === 'CHAR_SELECT') {
+            goBackToMenu();
+        }
+        else if (gameState === 'WEAPON_SELECT') {
+            gameState = 'CHAR_SELECT';
+        }
+        return; // ESC beendet die Funktion hier, damit nix anderes passiert
+    }
+
+    // 2. RESTLICHE LOGIK (Nur wenn Escape NICHT gedrückt wurde)
     if (gameState === 'MAIN_MENU') {
         if (key === 'enter' || key === ' ') { goToCharSelect(); return; }
-    }
-
-    if (gameState === 'CHAR_SELECT') {
-        if (key === 'escape') { goBackToMenu(); return; }
-    }
-
-    if (gameState === 'WEAPON_SELECT') {
-        if (key === 'escape') { gameState = 'CHAR_SELECT'; return; }
-    }
-
-    if (gameState === 'OPTIONS') {
-        if (key === 'escape') { gameState = 'MAIN_MENU'; return; }
     }
 
     if (key === 'r' && gameState === 'GAMEOVER') {
@@ -989,29 +1001,27 @@ window.addEventListener('keydown', (e) => {
     }
 
     if (gameState === 'PAUSED') {
-        if (key === 'escape') { gameState = 'PLAYING'; return; }
         if (key === 'm') { gameState = 'MAIN_MENU'; resetGameState(); initMainMenuParticles(); return; }
     }
 
-    if (key === 'escape' && gameState === 'PLAYING') {
-        gameState = 'PAUSED';
-        return;
-    }
-
-    if (key === 'w' || key === 'a' || key === 's' || key === 'd' ||
-        key === 'arrowup' || key === 'arrowdown' || key === 'arrowleft' || key === 'arrowright') {
+    // Bewegung blockieren, wenn wir nicht spielen
+    if (gameState === 'PLAYING' && (key === 'w' || key === 'a' || key === 's' || key === 'd' ||
+        key === 'arrowup' || key === 'arrowdown' || key === 'arrowleft' || key === 'arrowright')) {
         e.preventDefault();
     }
 
-    switch (key) {
-        case 'w': keys.w = true; break;
-        case 'a': keys.a = true; break;
-        case 's': keys.s = true; break;
-        case 'd': keys.d = true; break;
-        case 'arrowup': keys.up = true; break;
-        case 'arrowdown': keys.down = true; break;
-        case 'arrowleft': keys.left = true; break;
-        case 'arrowright': keys.right = true; break;
+    // Bewegung aktivieren (nur wenn wir spielen!)
+    if (gameState === 'PLAYING') {
+        switch (key) {
+            case 'w': keys.w = true; break;
+            case 'a': keys.a = true; break;
+            case 's': keys.s = true; break;
+            case 'd': keys.d = true; break;
+            case 'arrowup': keys.up = true; break;
+            case 'arrowdown': keys.down = true; break;
+            case 'arrowleft': keys.left = true; break;
+            case 'arrowright': keys.right = true; break;
+        }
     }
 });
 
@@ -1029,23 +1039,41 @@ window.addEventListener('keyup', (e) => {
     }
 });
 
-// ===== MAUS-EVENTS =====
+// ===== MAUS & TASTATUR EVENTS =====
+
 canvas.addEventListener('mousemove', (e) => {
     const rect = canvas.getBoundingClientRect();
     mouseX = e.clientX - rect.left;
     mouseY = e.clientY - rect.top;
     
-    // Hover-Status aktualisieren
     if (isMobile) return;
+
+    // Lautstärkeregler ziehen (Nutzt deine Variable isDraggingVolume)
+    if (isDraggingVolume && gameState === 'OPTIONS') {
+        const leftX = CANVAS_WIDTH / 2 - 150;
+        const sliderX = leftX + 30;
+        const sliderW = 300;
+        if (typeof updateVolume === 'function') {
+            updateVolume(mouseX, sliderX, sliderW);
+        } else if (typeof setMasterVolume === 'function') {
+            let pct = (mouseX - sliderX) / sliderW;
+            setMasterVolume(Math.max(0, Math.min(1, pct)));
+        }
+        return; // Kein Hover-Sound beim Ziehen
+    }
     
+    let currentHover = null;
+
     if (gameState === 'MAIN_MENU') {
         hoveredButton = isInsideStartBtn(mouseX, mouseY) ? 'start' : 
                        isInsideOptionsBtn(mouseX, mouseY) ? 'options' : null;
+        currentHover = hoveredButton;
     } else if (gameState === 'CHAR_SELECT') {
         hoveredCharIndex = -1;
         for (let i = 0; i < 3; i++) {
             if (isInsideCharacterCard(mouseX, mouseY, i)) {
                 hoveredCharIndex = i;
+                currentHover = 'char_' + i;
                 break;
             }
         }
@@ -1063,10 +1091,10 @@ canvas.addEventListener('mousemove', (e) => {
             const cx = startX + i * (cardWidth + gap);
             if (mouseX >= cx && mouseX <= cx + cardWidth && mouseY >= cardY && mouseY <= cardY + cardHeight) {
                 hoveredWeaponIndex = i;
+                currentHover = 'weapon_' + i;
                 break;
             }
         }
-        chestHoveredOption = null;
     } else if (gameState === 'LEVEL_UP') {
         levelUpHoveredOption = -1;
         levelUpHoveredContinue = false;
@@ -1081,72 +1109,107 @@ canvas.addEventListener('mousemove', (e) => {
             const cx = startX + i * (cardW + gap);
             if (mouseX >= cx && mouseX <= cx + cardW && mouseY >= cardY && mouseY <= cardY + cardH) {
                 levelUpHoveredOption = i;
+                currentHover = 'levelup_' + i;
                 break;
             }
         }
 
-        // Check "Weiter" button hover
-        const bw = 260;
-        const bh = 64;
-        const bx = CANVAS_WIDTH / 2 - bw / 2;
-        const by = CANVAS_HEIGHT - 100;
+        const bw = 260, bh = 64, bx = CANVAS_WIDTH / 2 - bw / 2, by = CANVAS_HEIGHT - 100;
         if (mouseX >= bx && mouseX <= bx + bw && mouseY >= by && mouseY <= by + bh) {
             levelUpHoveredContinue = true;
+            currentHover = 'levelup_continue';
         }
-        chestHoveredOption = null;
     } else if (gameState === 'CHEST_OPEN') {
         chestHoveredOption = null;
-        const optW = Math.min(380, CANVAS_WIDTH * 0.4);
-        const optH = 110;
-        const gap = 40;
-        const leftX = CANVAS_WIDTH / 2 - optW - gap / 2;
-        const rightX = CANVAS_WIDTH / 2 + gap / 2;
-        const optY = 240;
+        const optW = Math.min(380, CANVAS_WIDTH * 0.4), optH = 110, gap = 40;
+        const leftX = CANVAS_WIDTH / 2 - optW - gap / 2, rightX = CANVAS_WIDTH / 2 + gap / 2, optY = 240;
         const leftRect = { x: leftX - 10, y: optY - 5, w: optW + 20, h: optH + 10 };
         const rightRect = { x: rightX - 10, y: optY - 5, w: optW + 20, h: optH + 10 };
-        const bw = 260;
-        const bh = 64;
-        const bx = CANVAS_WIDTH / 2 - bw / 2;
-        const by = CANVAS_HEIGHT - 150;
+        const bw = 260, bh = 64, bx = CANVAS_WIDTH / 2 - bw / 2, by = CANVAS_HEIGHT - 150;
 
-        if (mouseX >= leftRect.x && mouseX <= leftRect.x + leftRect.w &&
-            mouseY >= leftRect.y && mouseY <= leftRect.y + leftRect.h) {
+        if (mouseX >= leftRect.x && mouseX <= leftRect.x + leftRect.w && mouseY >= leftRect.y && mouseY <= leftRect.y + leftRect.h) {
             chestHoveredOption = 'multishot';
-        } else if (mouseX >= rightRect.x && mouseX <= rightRect.x + rightRect.w &&
-                   mouseY >= rightRect.y && mouseY <= rightRect.y + rightRect.h) {
+            currentHover = 'chest_multishot';
+        } else if (mouseX >= rightRect.x && mouseX <= rightRect.x + rightRect.w && mouseY >= rightRect.y && mouseY <= rightRect.y + rightRect.h) {
             chestHoveredOption = 'double';
-        } else if (mouseX >= bx && mouseX <= bx + bw &&
-                   mouseY >= by && mouseY <= by + bh) {
+            currentHover = 'chest_double';
+        } else if (mouseX >= bx && mouseX <= bx + bw && mouseY >= by && mouseY <= by + bh) {
             chestHoveredOption = 'continue';
+            currentHover = 'chest_continue';
         }
-    } else {
-        hoveredButton = null;
-        hoveredCharIndex = -1;
-        hoveredWeaponIndex = -1;
-        levelUpHoveredOption = -1;
-        chestHoveredOption = null;
+    } else if (gameState === 'PAUSED') {
+        const bw = 260, bh = 50, cx = CANVAS_WIDTH / 2;
+        const by1 = CANVAS_HEIGHT / 2 - 20, by2 = CANVAS_HEIGHT / 2 + 50, by3 = CANVAS_HEIGHT / 2 + 120;
+        if (mouseX >= cx - bw/2 && mouseX <= cx + bw/2) {
+            if (mouseY >= by1 && mouseY <= by1 + bh) currentHover = 'pause_continue';
+            else if (mouseY >= by2 && mouseY <= by2 + bh) currentHover = 'pause_options';
+            else if (mouseY >= by3 && mouseY <= by3 + bh) currentHover = 'pause_menu';
+        }
+    } else if (gameState === 'OPTIONS') {
+        const backBtnX = 20, backBtnY = 20, backBtnW = 160, backBtnH = 52;
+        if (mouseX >= backBtnX && mouseX <= backBtnX + backBtnW && mouseY >= backBtnY && mouseY <= backBtnY + backBtnH) {
+            currentHover = 'options_back';
+        }
+        
+        const startY = CANVAS_HEIGHT / 2 - 50, lineHeight = 35, leftX = CANVAS_WIDTH / 2 - 150;
+        const sliderX = leftX + 30, sliderY = startY + lineHeight * 2, sliderW = 300, sliderH = 10;
+        if (mouseX >= sliderX - 15 && mouseX <= sliderX + sliderW + 15 && mouseY >= sliderY - 15 && mouseY <= sliderY + sliderH + 15) {
+            currentHover = 'options_slider';
+        }
     }
+
+    if (currentHover !== lastHoveredElement && currentHover !== null) {
+        playHoverSound();
+    }
+    lastHoveredElement = currentHover;
 });
 
 canvas.addEventListener('mousedown', (e) => {
-    if (e.button === 0) mouseDown = true;
+    if (e.button !== 0) return;
+    mouseDown = true;
+
+    // KORREKTUR: Berechne exakte Klick-Koordinaten direkt aus dem Event!
+    const rect = canvas.getBoundingClientRect();
+    const clickX = e.clientX - rect.left;
+    const clickY = e.clientY - rect.top;
+
+    if (gameState === 'OPTIONS') {
+        const startY = CANVAS_HEIGHT / 2 - 50, lineHeight = 35, leftX = CANVAS_WIDTH / 2 - 150;
+        const sliderX = leftX + 30, sliderY = startY + lineHeight * 2, sliderW = 300, sliderH = 10;
+        
+        // Nutzt die frisch berechneten clickX / clickY Werte
+        if (clickX >= sliderX - 15 && clickX <= sliderX + sliderW + 15 && clickY >= sliderY - 15 && clickY <= sliderY + sliderH + 15) {
+            isDraggingVolume = true;
+            if (typeof updateVolume === 'function') {
+                updateVolume(clickX, sliderX, sliderW);
+            }
+        }
+    }
 });
 
 canvas.addEventListener('mouseup', (e) => {
-    if (e.button === 0) mouseDown = false;
+    if (e.button === 0) {
+        mouseDown = false;
+        isDraggingVolume = false;
+    }
 });
 
 canvas.addEventListener('click', (e) => {
+    ensureAudio(); // Audio explizit aktivieren
+
     const rect = canvas.getBoundingClientRect();
     const clickX = e.clientX - rect.left;
     const clickY = e.clientY - rect.top;
 
     if (gameState === 'MAIN_MENU') {
         if (isInsideStartBtn(clickX, clickY)) {
+            playClickSound();
             goToCharSelect();
             return;
         }
         if (isInsideOptionsBtn(clickX, clickY)) {
+            playClickSound();
+            window.previousGameState = 'MAIN_MENU'; // Merken, wo wir herkamen
             gameState = 'OPTIONS';
             return;
         }
@@ -1154,26 +1217,21 @@ canvas.addEventListener('click', (e) => {
     }
 
     if (gameState === 'CHAR_SELECT') {
-        if (isInsideCharacterCard(clickX, clickY, 0)) {
-            selectCharacter(0);
-        }
+        if (isInsideCharacterCard(clickX, clickY, 0)) { playClickSound(); selectCharacter(0); }
         return;
     }
 
     if (gameState === 'WEAPON_SELECT') {
         const classes = [CLASSES.SNIPER, CLASSES.MACHINEGUN, CLASSES.SHOTGUN];
-        const cardWidth = Math.min(220, (CANVAS_WIDTH - 80) / 3);
-        const cardHeight = Math.min(260, CANVAS_HEIGHT * 0.45);
-        const gap = Math.min(30, (CANVAS_WIDTH - 3 * cardWidth) / 4);
-        const totalWidth = classes.length * cardWidth + (classes.length - 1) * gap;
-        const startX = (CANVAS_WIDTH - totalWidth) / 2;
+        const cardW = Math.min(220, (CANVAS_WIDTH - 80) / 3), cardH = Math.min(260, CANVAS_HEIGHT * 0.45);
+        const gap = Math.min(30, (CANVAS_WIDTH - 3 * cardW) / 4);
+        const startX = (CANVAS_WIDTH - (classes.length * cardW + (classes.length - 1) * gap)) / 2;
         const cardY = Math.min(210, CANVAS_HEIGHT * 0.35);
 
         for (let i = 0; i < classes.length; i++) {
-            const cx = startX + i * (cardWidth + gap);
-            if (clickX >= cx && clickX <= cx + cardWidth && clickY >= cardY && clickY <= cardY + cardHeight) {
-                selectWeapon(classes[i]);
-                return;
+            const cx = startX + i * (cardW + gap);
+            if (clickX >= cx && clickX <= cx + cardW && clickY >= cardY && clickY <= cardY + cardH) {
+                playClickSound(); selectWeapon(classes[i]); return;
             }
         }
         return;
@@ -1181,86 +1239,67 @@ canvas.addEventListener('click', (e) => {
 
     if (gameState === 'MENU') {
         const klasse = getClassAtPosition(clickX, clickY);
-        if (klasse) startGame(klasse);
+        if (klasse) { playClickSound(); startGame(klasse); }
         return;
     }
 
     if (gameState === 'LEVEL_UP') {
-        const cardW = Math.min(220, (CANVAS_WIDTH - 80) / 3);
-        const cardH = Math.min(200, CANVAS_HEIGHT * 0.35);
+        const cardW = Math.min(220, (CANVAS_WIDTH - 80) / 3), cardH = Math.min(200, CANVAS_HEIGHT * 0.35);
         const gap = Math.min(30, (CANVAS_WIDTH - 3 * cardW) / 4);
-        const totalW = 3 * cardW + 2 * gap;
-        const startX = (CANVAS_WIDTH - totalW) / 2;
-        const cardY = CANVAS_HEIGHT / 2 - cardH / 2 + 30;
+        const startX = (CANVAS_WIDTH - (3 * cardW + 2 * gap)) / 2, cardY = CANVAS_HEIGHT / 2 - cardH / 2 + 30;
 
         for (let j = 0; j < 3; j++) {
             const cx = startX + j * (cardW + gap);
             if (clickX >= cx && clickX <= cx + cardW && clickY >= cardY && clickY <= cardY + cardH) {
-                levelUpSelectedOption = j;
-                return;
+                playClickSound(); levelUpSelectedOption = j; return;
             }
         }
 
-        // Check "Weiter" button
-        const bw = 260;
-        const bh = 64;
-        const bx = CANVAS_WIDTH / 2 - bw / 2;
-        const by = CANVAS_HEIGHT - 100;
+        const bw = 260, bh = 64, bx = CANVAS_WIDTH / 2 - bw / 2, by = CANVAS_HEIGHT - 100;
         if (clickX >= bx && clickX <= bx + bw && clickY >= by && clickY <= by + bh) {
-            if (levelUpSelectedOption >= 0) {
-                applyLevelUp(levelUpSelectedOption);
-            }
+            if (levelUpSelectedOption >= 0) { playClickSound(); applyLevelUp(levelUpSelectedOption); }
             return;
         }
         return;
     }
 
     if (gameState === 'PAUSED') {
-        if (isInsidePauseBtn(clickX, clickY, pauseContinueBtn)) {
-            gameState = 'PLAYING';
-            return;
-        }
-        if (isInsidePauseBtn(clickX, clickY, pauseMenuBtn)) {
-            gameState = 'MAIN_MENU';
-            resetGameState();
-            initMainMenuParticles();
-            return;
+        const bw = 260, bh = 50, cx = CANVAS_WIDTH / 2;
+        const by1 = CANVAS_HEIGHT / 2 - 20, by2 = CANVAS_HEIGHT / 2 + 50, by3 = CANVAS_HEIGHT / 2 + 120;
+
+        if (clickX >= cx - bw/2 && clickX <= cx + bw/2) {
+            if (clickY >= by1 && clickY <= by1 + bh) { 
+                playClickSound(); gameState = 'PLAYING'; return; 
+            }
+            if (clickY >= by2 && clickY <= by2 + bh) { 
+                playClickSound(); window.previousGameState = 'PAUSED'; gameState = 'OPTIONS'; return; 
+            }
+            if (clickY >= by3 && clickY <= by3 + bh) { 
+                playClickSound(); gameState = 'MAIN_MENU'; resetGameState(); initMainMenuParticles(); return; 
+            }
         }
         return;
     }
 
     if (gameState === 'CHEST_OPEN') {
-        const optW = Math.min(380, CANVAS_WIDTH * 0.4);
-        const optH = 110;
-        const gap = 40;
-        const leftX = CANVAS_WIDTH / 2 - optW - gap / 2;
-        const rightX = CANVAS_WIDTH / 2 + gap / 2;
-        const optY = 240;
+        const optW = Math.min(380, CANVAS_WIDTH * 0.4), optH = 110, gap = 40;
+        const leftX = CANVAS_WIDTH / 2 - optW - gap / 2, rightX = CANVAS_WIDTH / 2 + gap / 2, optY = 240;
         const leftRect = { x: leftX - 10, y: optY - 5, w: optW + 20, h: optH + 10 };
         const rightRect = { x: rightX - 10, y: optY - 5, w: optW + 20, h: optH + 10 };
-        const bw = 260;
-        const bh = 64;
-        const bx = CANVAS_WIDTH / 2 - bw / 2;
-        const by = CANVAS_HEIGHT - 150;
+        const bw = 260, bh = 64, bx = CANVAS_WIDTH / 2 - bw / 2, by = CANVAS_HEIGHT - 150;
 
-        if (clickX >= leftRect.x && clickX <= leftRect.x + leftRect.w &&
-            clickY >= leftRect.y && clickY <= leftRect.y + leftRect.h) {
-            chestSelectedOption = 'multishot';
-            return;
+        if (clickX >= leftRect.x && clickX <= leftRect.x + leftRect.w && clickY >= leftRect.y && clickY <= leftRect.y + leftRect.h) {
+            playClickSound(); chestSelectedOption = 'multishot'; return;
         }
-        if (clickX >= rightRect.x && clickX <= rightRect.x + rightRect.w &&
-            clickY >= rightRect.y && clickY <= rightRect.y + rightRect.h) {
-            chestSelectedOption = 'double';
-            return;
+        if (clickX >= rightRect.x && clickX <= rightRect.x + rightRect.w && clickY >= rightRect.y && clickY <= rightRect.y + rightRect.h) {
+            playClickSound(); chestSelectedOption = 'double'; return;
         }
-        if (clickX >= bx && clickX <= bx + bw &&
-            clickY >= by && clickY <= by + bh) {
+        if (clickX >= bx && clickX <= bx + bw && clickY >= by && clickY <= by + bh) {
             if (!chestSelectedOption) return;
-            if (chestSelectedOption === 'multishot') {
-                player.projectileMultiplier *= 2;
-            } else if (chestSelectedOption === 'double') {
-                player.damageMultiplier *= 2;
-            }
+            playClickSound();
+            if (chestSelectedOption === 'multishot') player.projectileMultiplier *= 2;
+            else if (chestSelectedOption === 'double') player.damageMultiplier *= 2;
+            
             chests = chests.filter(c => !c.opened);
             currentChest = null;
             chestSelectedOption = null;
@@ -1272,45 +1311,40 @@ canvas.addEventListener('click', (e) => {
     }
 
     if (gameState === 'OPTIONS') {
-        if (isInsideOptionsBack(clickX, clickY)) {
-            gameState = 'MAIN_MENU';
-            initMainMenuParticles();
+        const backBtnX = 20, backBtnY = 20, backBtnW = 160, backBtnH = 52;
+        if (clickX >= backBtnX && clickX <= backBtnX + backBtnW && clickY >= backBtnY && clickY <= backBtnY + backBtnH) {
+            playClickSound();
+            // Geht exakt dorthin zurück, wo wir herkommen (Pause oder Main Menu)
+            gameState = window.previousGameState || 'MAIN_MENU';
+            if (gameState === 'MAIN_MENU') initMainMenuParticles();
             return;
         }
         return;
     }
 
     if (gameState === 'GAMEOVER') {
-        const btnX = CANVAS_WIDTH / 2 - 120;
-        const btnY = CANVAS_HEIGHT / 2 + 110;
-        const btnW = 240;
-        const btnH = 52;
+        const btnX = CANVAS_WIDTH / 2 - 120, btnY = CANVAS_HEIGHT / 2 + 110, btnW = 240, btnH = 52;
         if (clickX >= btnX && clickX <= btnX + btnW && clickY >= btnY && clickY <= btnY + btnH) {
-            gameState = 'MAIN_MENU';
-            resetGameState();
-            initMainMenuParticles();
-            return;
+            playClickSound(); gameState = 'MAIN_MENU'; resetGameState(); initMainMenuParticles(); return;
         }
         return;
     }
 
     if (gameState === 'PLAYING') {
-        if (isInsideMenuBtn(clickX, clickY)) { gameState = 'PAUSED'; return; }
+        if (isInsideMenuBtn(clickX, clickY)) { playClickSound(); gameState = 'PAUSED'; return; }
     }
 
     if (gameState !== 'PLAYING' || !selectedClass) return;
-
     const now = Date.now();
     if (now - lastShotTime < selectedClass.fireRate * player.fireRateMultiplier) return;
     lastShotTime = now;
-
     const dx = clickX - CANVAS_WIDTH / 2;
     const dy = clickY - CANVAS_HEIGHT / 2;
     const length = Math.sqrt(dx * dx + dy * dy);
     if (length === 0) return;
-
     fireBullet(dx / length, dy / length);
 });
+
 
 // ===== GEMEINSAME SCHUSS-FUNKTION =====
 function fireBullet(dirX, dirY) {
@@ -1417,6 +1451,7 @@ function startGame(klasse) {
 }
 
 function resetGameState() {
+    player.maxHealth = 100;
     player.health = player.maxHealth;
     player.level = 1;
     player.xp = 0;
@@ -1449,9 +1484,16 @@ function resetGameState() {
 }
 
 function resetPlayerPosition() {
-    player.x = CANVAS_WIDTH / 2;
-    player.y = CANVAS_HEIGHT / 2;
-    player.angle = 0;
+    const worldSize = 6000;
+    const spawnRange = 3000; 
+    const center = worldSize / 2; // 3000
+    const offset = spawnRange / 2; // 1500
+
+    // Das ergibt einen Bereich zwischen 1500 und 4500
+    player.x = (center - offset) + Math.random() * spawnRange;
+    player.y = (center - offset) + Math.random() * spawnRange;
+
+    // Kamera synchronisieren
     cameraX = player.x;
     cameraY = player.y;
     gridOffsetX = cameraX;
@@ -1537,7 +1579,7 @@ function spawnEnemy() {
 function spawnMiniboss() {
     if (gameState !== 'PLAYING') return;
     
-    const size = 88; 
+    const size = 70; 
     const hp = 5000; 
     
     // Zufällige Himmelsrichtung berechnen
@@ -1620,8 +1662,11 @@ function increaseDifficulty() {
 }
 setInterval(increaseDifficulty, 15000);
 
-// ===== UPDATE =====
 function update() {
+    const W_WIDTH = (typeof WORLD_WIDTH !== 'undefined') ? WORLD_WIDTH : 6000;
+    const W_HEIGHT = (typeof WORLD_HEIGHT !== 'undefined') ? WORLD_HEIGHT : 6000;
+
+    // 1. Menü-Partikel (laufen immer, wenn wir im Hauptmenü sind)
     if (gameState === 'MENU') {
         for (const p of menuParticles) {
             p.x += p.vx;
@@ -1635,352 +1680,382 @@ function update() {
         return;
     }
 
-    if (gameState === 'PAUSED' || gameState === 'GAMEOVER' || gameState === 'LEVEL_UP' || gameState === 'CHEST_OPEN') {
+    // 2. Andere Menüs/Zustände: Spiel-Logik pausieren
+    if (['PAUSED', 'GAMEOVER', 'LEVEL_UP', 'CHEST_OPEN', 'MAIN_MENU', 'OPTIONS', 'CHAR_SELECT', 'WEAPON_SELECT'].includes(gameState)) {
         lastTimerUpdate = Date.now();
         return;
     }
- 
-    // === Timer ===
-    const now = Date.now();
-    if (lastTimerUpdate > 0) {
-        gameTime += (now - lastTimerUpdate) / 1000;
-    }
-    lastTimerUpdate = now;
 
-    // === Spieler-Bewegung (Tastatur) ===
-    let moving = false;
-    const currentSpeed = player.speed * player.speedMultiplier;
-    if (keys.w || keys.up) { player.y -= currentSpeed; moving = true; }
-    if (keys.s || keys.down) { player.y += currentSpeed; moving = true; }
-    if (keys.a || keys.left) { player.x -= currentSpeed; moving = true; }
-    if (keys.d || keys.right) { player.x += currentSpeed; moving = true; }
+    // 3. PLAYING: Spiel-Logik
+    if (gameState === 'PLAYING') {
+        // NaN Sicherheits-Reset
+        if (isNaN(player.x)) player.x = 100;
+        if (isNaN(player.y)) player.y = 100;
 
-    // === Spieler-Bewegung (Touch-Joystick) ===
-    if (isMobile && touchJoystickActive) {
-        player.x += player.vx * currentSpeed;
-        player.y += player.vy * currentSpeed;
-        moving = (player.vx !== 0 || player.vy !== 0);
-    }
+        const now = Date.now();
+        if (lastTimerUpdate > 0) {
+            gameTime += (now - lastTimerUpdate) / 1000;
+        }
+        lastTimerUpdate = now;
 
-    cameraX = player.x;
-    cameraY = player.y;
-    gridOffsetX = cameraX;
-    gridOffsetY = cameraY;
+        const speed = (player.speed || 3.2) * (player.speedMultiplier || 1.0);
 
-    if (!minibossSpawned && gameState === 'PLAYING' && gameTime >= 210) {
-        spawnMiniboss();
-    }
+        if (keys.w || keys.up) player.y -= speed;
+        if (keys.s || keys.down) player.y += speed;
+        if (keys.a || keys.left) player.x -= speed;
+        if (keys.d || keys.right) player.x += speed;
 
-    // Spieler-Winkel
-    // On mobile, angle is set by touch events (right side aiming). Keep it.
-    if (!isMobile) {
-        player.angle = Math.atan2(mouseY - CANVAS_HEIGHT / 2, mouseX - CANVAS_WIDTH / 2);
-    }
-
-// === Projektile bewegen ===
-    for (let i = bullets.length - 1; i >= 0; i--) {
-        const b = bullets[i];
-        b.x += b.vx;
-        b.y += b.vy;
-
-        if (b.maxRange) {
-            const dist = Math.sqrt((b.x - b.startX) ** 2 + (b.y - b.startY) ** 2);
-            if (dist > b.maxRange) { bullets.splice(i, 1); continue; }
+        if (isMobile && touchJoystickActive) {
+            player.x += (player.vx || 0) * speed;
+            player.y += (player.vy || 0) * speed;
         }
 
-        b.life--;
-        if (b.life <= 0) {
-            bullets.splice(i, 1);
-            continue;
+        player.x = Math.max(0, Math.min(W_WIDTH, player.x));
+        player.y = Math.max(0, Math.min(W_HEIGHT, player.y));
+
+        cameraX = player.x;
+        cameraY = player.y;
+        gridOffsetX = cameraX;
+        gridOffsetY = cameraY;
+
+        if (!minibossSpawned && gameTime >= 10) {
+            spawnMiniboss();
         }
 
-        // PRÜFUNG: Trifft eine gegnerische Kugel den Spieler?
-        if (b.isEnemyBullet) {
-            const distToPlayer = Math.sqrt((b.x - player.x) ** 2 + (b.y - player.y) ** 2);
-            // miniboss angplayer.size + b.size ist die Berührungs-Hitbox
-            if (distToPlayer < (player.size || 12) + b.size) {
-                player.health -= b.damage;
-                createExplosion(player.x, player.y, 10, '#ff0055', '#ff0000', 3);
-                
-                bullets.splice(i, 1); // Kugel löschen
+        if (!isMobile) {
+            player.angle = Math.atan2(mouseY - CANVAS_HEIGHT / 2, mouseX - CANVAS_WIDTH / 2);
+        }
+
+        for (let i = bullets.length - 1; i >= 0; i--) {
+            const b = bullets[i];
+            b.x += b.vx;
+            b.y += b.vy;
+
+            if (b.maxRange) {
+                const dist = Math.sqrt((b.x - b.startX) ** 2 + (b.y - b.startY) ** 2);
+                if (dist > b.maxRange) { bullets.splice(i, 1); continue; }
+            }
+
+            b.life--;
+            if (b.life <= 0) {
+                bullets.splice(i, 1);
+                continue;
+            }
+
+            if (b.isEnemyBullet) {
+                const distToPlayer = Math.sqrt((b.x - player.x) ** 2 + (b.y - player.y) ** 2);
+                if (distToPlayer < (player.size || 12) + b.size) {
+                    player.health -= b.damage;
+                    createExplosion(player.x, player.y, 10, '#ff0055', '#ff0000', 3);
+                    bullets.splice(i, 1);
+                    if (player.health <= 0) {
+                        player.health = 0;
+                        gameState = 'GAMEOVER';
+                        if (spawnTimerId) clearInterval(spawnTimerId);
+                    }
+                    continue;
+                }
+            }
+        }
+
+        for (let i = 0; i < enemies.length; i++) {
+            const e = enemies[i];
+            const dx = player.x - e.x;
+            const dy = player.y - e.y;
+            const length = Math.sqrt(dx * dx + dy * dy);
+            const isScreaming = (Date.now() - (e.lastAttackTime || 0)) < 1000;
+
+            if (length > 0) {
+                if (e.type !== 'MINIBOSS' || !isScreaming) {
+                    e.x += (dx / length) * e.speed;
+                    e.y += (dy / length) * e.speed;
+                }
+            }
+
+            if (e.type !== 'MINIBOSS') {
+                e.angle += e.rotSpeed;
+            } else {
+                e.angle = Math.atan2(dy, dx);
+            }
+
+            if (e.type === 'MINIBOSS') {
+                if (!e.lastAttackTime) e.lastAttackTime = Date.now();
+                if (!e.lastDamageTime) e.lastDamageTime = 0;
+                const now = Date.now();
+
+                if (now - e.lastAttackTime > 6000) {
+                    e.lastAttackTime = now;
+                    try { playBossScreamSound(); } catch (err) {}
+                }
+
+                const timeSinceAttack = now - e.lastAttackTime;
+                const isScreamingNow = timeSinceAttack > 0 && timeSinceAttack < 1000;
+
+                if (isScreamingNow) {
+                    const distToPlayer = Math.sqrt((player.x - e.x)**2 + (player.y - e.y)**2);
+                    const angleToPlayer = Math.atan2(player.y - e.y, player.x - e.x);
+                    let angleDiff = Math.abs(angleToPlayer - e.angle);
+                    if (angleDiff > Math.PI) angleDiff = 2 * Math.PI - angleDiff;
+
+                    if (distToPlayer < 350 && angleDiff < Math.PI / 6) {
+                        if (now - e.lastDamageTime > 100) {
+                            player.health -= 2.5;
+                            e.lastDamageTime = now;
+                            screenDamageFlash = 0.4;
+                            createExplosion(player.x, player.y, 5, '#ff4400', '#ff0000', 1);
+                        }
+                    }
+                }
+            }
+        }
+
+        for (let i = 0; i < chests.length; i++) {
+            const ch = chests[i];
+            if (ch.opened) continue;
+            const dx = player.x - ch.x;
+            const dy = player.y - ch.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            if (dist < 30) {
+                ch.opened = true;
+                currentChest = ch;
+                chestSelectedOption = null;
+                gameState = 'CHEST_OPEN';
+                try { playChestOpenSound(); } catch (e) {}
+                for (let p = 0; p < 24; p++) {
+                    const ang = Math.random() * Math.PI * 2;
+                    const spd = 2 + Math.random() * 4;
+                    particles.push({ x: ch.x, y: ch.y, vx: Math.cos(ang) * spd, vy: Math.sin(ang) * spd - 0.6, size: 2 + Math.random() * 3, life: 1.2, decay: 0.02 + Math.random() * 0.03, color: '#fff9c4', glow: '#ffd700' });
+                }
+                break;
+            }
+        }
+
+        for (let i = bullets.length - 1; i >= 0; i--) {
+            const b = bullets[i];
+            let bulletRemoved = false;
+            if (!b.hitEnemies) b.hitEnemies = [];
+
+            for (let j = enemies.length - 1; j >= 0; j--) {
+                const e = enemies[j];
+                if (b.hitEnemies.includes(e)) continue;
+
+                if (b.x < e.x + e.size && b.x + b.size > e.x - e.size &&
+                    b.y < e.y + e.size && b.y + b.size > e.y - e.size) {
+                    b.hitEnemies.push(e);
+                    e.health -= b.damage;
+
+                    if (player.lifesteal > 0) {
+                        const healAmount = Math.round(b.damage * player.lifesteal);
+                        player.health = Math.min(player.health + healAmount, player.maxHealth);
+                    }
+
+                    if (e.health <= 0) {
+                        try { playEnemyDeathSound(); } catch (err) {}
+                        createExplosion(e.x, e.y, 20, e.color || '#ff4444', e.glow || '#ff0000', 4);
+                        createExplosion(e.x, e.y, 6, '#ffaa00', '#ff6600', 2);
+
+                        if (e.type === 'MINIBOSS') {
+                            chests.push({ x: e.x, y: e.y, opened: false });
+                            createExplosion(e.x, e.y, 30, '#ffdd77', '#ffd700', 6);
+                            dropXpCrystal(e.x, e.y, e.dropCount || 25, e.xpValue || 500);
+                            score += 2000;
+                            enemies.splice(j, 1);
+                            bulletRemoved = true;
+                            break;
+                        } else {
+                            const drops = e.xpValue || 1;
+                            dropXpCrystal(e.x, e.y, drops, drops);
+                            enemies.splice(j, 1);
+                            score += 100 * (e.xpValue || 1);
+                            bulletRemoved = true;
+                            break;
+                        }
+                    }
+                    if (!b.piercing) {
+                        bullets.splice(i, 1);
+                        bulletRemoved = true;
+                        break;
+                    }
+                }
+            }
+            if (bulletRemoved) continue;
+        }
+
+        for (let i = enemies.length - 1; i >= 0; i--) {
+            const e = enemies[i];
+            const dist = Math.sqrt((e.x - player.x) ** 2 + (e.y - player.y) ** 2);
+
+            if (dist < e.size + 15) {
+                let damageToPlayer = 10;
+                if (e.type === 'MINIBOSS') {
+                    damageToPlayer = 40;
+                } else if (e.size > 20) {
+                    damageToPlayer = 30;
+                } else if (e.speed < 2.5) {
+                    damageToPlayer = 20;
+                }
+
+                player.health -= damageToPlayer;
+                screenDamageFlash = 0.4;
+                const now = Date.now();
+                if (now - lastDamageSoundTime > 100) {
+                    try { playDamageSound(); } catch (err) {}
+                    lastDamageSoundTime = now;
+                }
+                createExplosion(player.x, player.y, 8, '#ff4444', '#ff0000', 2);
+
+                if (e.type === 'MINIBOSS') {
+                    const angle = Math.atan2(player.y - e.y, player.x - e.x);
+                    player.x += Math.cos(angle) * 20;
+                    player.y += Math.sin(angle) * 20;
+                } else {
+                    enemies.splice(i, 1);
+                }
 
                 if (player.health <= 0) {
                     player.health = 0;
                     gameState = 'GAMEOVER';
                     if (spawnTimerId) clearInterval(spawnTimerId);
                 }
-                continue;
             }
         }
-    }
-// === Gegner bewegen & Boss Angriffe ===
-for (let i = 0; i < enemies.length; i++) {
-    const e = enemies[i];
-    const dx = player.x - e.x;
-    const dy = player.y - e.y;
-    const length = Math.sqrt(dx * dx + dy * dy);
-    
-    // NEU: Boss bleibt während der gesamten 1000ms "Schreiphase" stehen
-    const isScreaming = (Date.now() - (e.lastAttackTime || 0)) < 1000;
-    
-    if (length > 0) {
-        if (e.type !== 'MINIBOSS' || !isScreaming) {
-            e.x += (dx / length) * e.speed;
-            e.y += (dy / length) * e.speed;
-        }
-    }
-    
-    if (e.type !== 'MINIBOSS') {
-        e.angle += e.rotSpeed;
-    } else {
-        e.angle = Math.atan2(dy, dx); 
-    }
 
-    // Miniboss Angriff-Logik
-    if (e.type === 'MINIBOSS') {
-        if (!e.lastAttackTime) e.lastAttackTime = Date.now();
-        if (!e.lastDamageTime) e.lastDamageTime = 0; 
-        const now = Date.now();
+        const magnetRadius = player.magnetRadius || 100;
+        const collectRadius = 15;
 
-        // 1. Schrei-Timer (Alle 6 Sekunden)
-        if (now - e.lastAttackTime > 6000) {
-            e.lastAttackTime = now;
-            try { playBossScreamSound(); } catch (err) {}
-        }
+        for (let i = xpCrystals.length - 1; i >= 0; i--) {
+            const c = xpCrystals[i];
+            const dx = player.x - c.x;
+            const dy = player.y - c.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
 
-        // 2. Schaden-Prüfung (Innerhalb der IF-Bedingung, also innerhalb der Schleife!)
-        const timeSinceAttack = now - e.lastAttackTime;
-        const isScreamingNow = timeSinceAttack > 0 && timeSinceAttack < 1000;
-
-        if (isScreamingNow) {
-            const distToPlayer = Math.sqrt((player.x - e.x)**2 + (player.y - e.y)**2);
-            const angleToPlayer = Math.atan2(player.y - e.y, player.x - e.x);
-            
-            let angleDiff = Math.abs(angleToPlayer - e.angle);
-            if (angleDiff > Math.PI) angleDiff = 2 * Math.PI - angleDiff;
-
-            if (distToPlayer < 350 && angleDiff < Math.PI / 6) {
-                if (now - e.lastDamageTime > 100) {
-                    player.health -= 2.5; 
-                    e.lastDamageTime = now;
-                    screenDamageFlash = 0.4;
-                    createExplosion(player.x, player.y, 5, '#ff4400', '#ff0000', 1);
-                }
+            if (dist < magnetRadius) {
+                const speed = 6;
+                c.x += (dx / dist) * speed;
+                c.y += (dy / dist) * speed;
             }
-        }
-    } // Ende IF MINIBOSS
-} // Ende der for-Schleife (Hier fehlte die Klammer!)
 
-    // === Chest pickup check ===
-    for (let i = 0; i < chests.length; i++) {
-        const ch = chests[i];
-        if (ch.opened) continue;
-        const dx = player.x - ch.x;
-        const dy = player.y - ch.y;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-        if (dist < 30) {
-            ch.opened = true;
-            currentChest = ch;
-            chestSelectedOption = null;
-            gameState = 'CHEST_OPEN';
-            try { playChestOpenSound(); } catch (e) {}
-            // glitter particles
-            for (let p = 0; p < 24; p++) {
-                const ang = Math.random() * Math.PI * 2;
-                const spd = 2 + Math.random() * 4;
-                particles.push({ x: ch.x, y: ch.y, vx: Math.cos(ang) * spd, vy: Math.sin(ang) * spd - 0.6, size: 2 + Math.random() * 3, life: 1.2, decay: 0.02 + Math.random() * 0.03, color: '#fff9c4', glow: '#ffd700' });
-            }
-            break;
-        }
-    }
-
-// === Kollision: Projektil trifft Gegner (REPARIERT) ===
-    for (let i = bullets.length - 1; i >= 0; i--) {
-        const b = bullets[i];
-        let bulletRemoved = false;
-
-        // Falls hitEnemies noch nicht existiert (Sicherheitshalber), erstellen wir es hier
-        if (!b.hitEnemies) b.hitEnemies = [];
-
-        for (let j = enemies.length - 1; j >= 0; j--) {
-            const e = enemies[j];
-
-            // NEU: Wenn diese Kugel DIESEN Gegner bereits getroffen hat, überspringe ihn!
-            if (b.hitEnemies.includes(e)) continue;
-
-            // Deine originale Hitbox-Abfrage
-            if (b.x < e.x + e.size && b.x + b.size > e.x - e.size &&
-                b.y < e.y + e.size && b.y + b.size > e.y - e.size) {
-
-                // NEU: Gegner sofort auf die "Blacklist" dieser Kugel setzen
-                b.hitEnemies.push(e);
-
-                e.health -= b.damage;
-
-                // Lebensraub: heile % des verursachten Schadens
-                if (player.lifesteal > 0) {
-                    const healAmount = Math.round(b.damage * player.lifesteal);
-                    player.health = Math.min(player.health + healAmount, player.maxHealth);
+            if (dist < collectRadius) {
+                player.xp += 10 * c.value * player.xpMultiplier;
+                try { playXpSound(); } catch (e) {}
+                for (let k = 0; k < 8; k++) {
+                    const ang = Math.random() * Math.PI * 2;
+                    const spd = 1 + Math.random() * 2.5;
+                    particles.push({ x: c.x, y: c.y, vx: Math.cos(ang) * spd, vy: Math.sin(ang) * spd, size: Math.random() * 3 + 1, life: 1.0, decay: 0.02 + Math.random() * 0.02, color: '#88ff88', glow: '#66ff66' });
                 }
+                xpCrystals.splice(i, 1);
 
-                if (e.health <= 0) {
-                    try { playEnemyDeathSound(); } catch (err) {}
-                    // Explosion effects
-                    createExplosion(e.x, e.y, 20, e.color || '#ff4444', e.glow || '#ff0000', 4);
-                    createExplosion(e.x, e.y, 6, '#ffaa00', '#ff6600', 2);
-
-                    // If miniboss: drop chest AND the 25 explosion-crystals
-                    if (e.type === 'MINIBOSS') {
-                        chests.push({ x: e.x, y: e.y, opened: false });
-                        createExplosion(e.x, e.y, 30, '#ffdd77', '#ffd700', 6);
-                        dropXpCrystal(e.x, e.y, e.dropCount || 25, e.xpValue || 500);
-                        
-                        score += 2000;
-                        enemies.splice(j, 1);
-                        bulletRemoved = true;
-                        break;
-                    } else {
-                        const drops = e.xpValue || 1;
-                        dropXpCrystal(e.x, e.y, drops, drops); 
-                        
-                        enemies.splice(j, 1);
-                        score += 100 * (e.xpValue || 1);
-                        bulletRemoved = true;
-                        break;
-                    }
-                }
-
-                // Wenn die Kugel KEIN Piercing hat, wird sie gelöscht
-                if (!b.piercing) {
-                    bullets.splice(i, 1);
-                    bulletRemoved = true;
-                    break; // Schleife für diesen Gegner abbrechen, Kugel ist weg
+                if (player.xp >= player.xpToNext) {
+                    gameState = 'LEVEL_UP';
+                    generateLevelUpOptions();
+                    levelUpSelectedOption = -1;
+                    try { playLevelUpSound(); } catch (e) {}
                 }
             }
         }
 
-        if (bulletRemoved) continue;
-    }
-
-// === Kollision: Gegner trifft Spieler (REPARIERT & DYNAMISCH) ===
-for (let i = enemies.length - 1; i >= 0; i--) {
-    const e = enemies[i];
-    const dist = Math.sqrt((e.x - player.x) ** 2 + (e.y - player.y) ** 2);
-
-    if (dist < e.size + 12) {
-        // Schaden dynamisch anhand der Gegner-Werte bestimmen
-        let damageToPlayer = 10; 
-        if (e.type === 'MINIBOSS') {
-            damageToPlayer = 40; 
-        } else if (e.size > 20) { 
-            damageToPlayer = 30; 
-        } else if (e.speed < 2.5) { 
-            damageToPlayer = 20; 
+        for (let i = particles.length - 1; i >= 0; i--) {
+            const p = particles[i];
+            p.x += p.vx;
+            p.y += p.vy;
+            p.vx *= 0.98;
+            p.vy *= 0.98;
+            p.life -= p.decay;
+            p.size *= 0.99;
+            if (p.life <= 0 || p.size < 0.5) particles.splice(i, 1);
         }
-
-        // Schaden abziehen
-        player.health -= damageToPlayer;
-        
-        // --- HIER: Rotes Blinken UND Sound abspielen ---
-        screenDamageFlash = 0.4;
-        // --- HIER: Sound mit 100ms Cooldown ---
-        const now = Date.now();
-        if (now - lastDamageSoundTime > 100) {
-            try { playDamageSound(); } catch (err) {}
-            lastDamageSoundTime = now;
-        }
-        createExplosion(player.x, player.y, 8, '#ff4444', '#ff0000', 2);
-
-        if (e.type === 'MINIBOSS') {
-            const angle = Math.atan2(player.y - e.y, player.x - e.x);
-            player.x += Math.cos(angle) * 20;
-            player.y += Math.sin(angle) * 20;
-        } else {
-            enemies.splice(i, 1);
-        }
-
-        if (player.health <= 0) {
-            player.health = 0;
-            gameState = 'GAMEOVER';
-            if (spawnTimerId) clearInterval(spawnTimerId);
-        }
-    }
-}
-
-// === XP-Kristalle: Magnet-Effekt + Einsammeln (DYNAMISCH) ===
-    const magnetRadius = player.magnetRadius || 100; // Nutzt jetzt das Upgrade!
-    const collectRadius = 15;
-
-    for (let i = xpCrystals.length - 1; i >= 0; i--) {
-        const c = xpCrystals[i];
-        const dx = player.x - c.x;
-        const dy = player.y - c.y;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-
-        if (dist < magnetRadius) {
-            // Magnet: zum Spieler fliegen
-            const speed = 6;
-            c.x += (dx / dist) * speed;
-            c.y += (dy / dist) * speed;
-        }
-
-        if (dist < collectRadius) {
-            // Eingesammelt
-            player.xp += 10 * c.value * player.xpMultiplier;
-            // small sound + particles
-            try { playXpSound(); } catch (e) {}
-            for (let k = 0; k < 8; k++) {
-                const ang = Math.random() * Math.PI * 2;
-                const spd = 1 + Math.random() * 2.5;
-                particles.push({ x: c.x, y: c.y, vx: Math.cos(ang) * spd, vy: Math.sin(ang) * spd, size: Math.random() * 3 + 1, life: 1.0, decay: 0.02 + Math.random() * 0.02, color: '#88ff88', glow: '#66ff66' });
-            }
-            xpCrystals.splice(i, 1);
-
-            // Prüfen ob Level-Up
-            if (player.xp >= player.xpToNext) {
-                gameState = 'LEVEL_UP';
-                generateLevelUpOptions();
-                levelUpSelectedOption = -1;
-                try { playLevelUpSound(); } catch (e) {}
-            }
-        }
-    }
-
-    // === Partikel aktualisieren ===
-    for (let i = particles.length - 1; i >= 0; i--) {
-        const p = particles[i];
-        p.x += p.vx;
-        p.y += p.vy;
-        p.vx *= 0.98;
-        p.vy *= 0.98;
-        p.life -= p.decay;
-        p.size *= 0.99;
-        if (p.life <= 0 || p.size < 0.5) particles.splice(i, 1);
     }
 }
 
 // ===== ZEICHNEN =====
+function drawMinimap() {
+    const mapSize = 187.5; // Größe der Minimap in Pixeln
+    const margin = 20;   // Abstand vom rechten unteren Rand
+    const mapX = CANVAS_WIDTH - mapSize - margin;
+    const mapY = CANVAS_HEIGHT - mapSize - margin;
+
+    // Hintergrund der Minimap
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+    ctx.strokeStyle = '#555';
+    ctx.lineWidth = 2;
+    ctx.fillRect(mapX, mapY, mapSize, mapSize);
+    ctx.strokeRect(mapX, mapY, mapSize, mapSize);
+
+    // Skalierungsfaktor (Welt zu Minimap)
+    const scaleX = mapSize / WORLD_WIDTH;
+    const scaleY = mapSize / WORLD_HEIGHT;
+
+    // Truhen zeichnen
+    ctx.fillStyle = 'gold';
+    for (const ch of chests) {
+        if (!ch.opened) {
+            const chX = mapX + (ch.x * scaleX);
+            const chY = mapY + (ch.y * scaleY);
+            // Größe von 3 auf 4 erhöht (wegen der 25% größeren Map)
+            ctx.fillRect(chX - 1.5, chY - 1.5, 4, 4); 
+        }
+    }
+
+    // Spieler zeichnen
+    ctx.fillStyle = '#00ffcc';
+    const pX = mapX + (player.x * scaleX);
+    const pY = mapY + (player.y * scaleY);
+    // Größe von 4 auf 5 erhöht
+    ctx.fillRect(pX - 2.5, pY - 2.5, 5, 5);
+}
+
 
 function drawGrid() {
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.06)';
-    ctx.lineWidth = 1;
-    const gridSize = 50;
-    const offsetX = ((CANVAS_WIDTH / 2 - cameraX) % gridSize + gridSize) % gridSize;
-    const offsetY = ((CANVAS_HEIGHT / 2 - cameraY) % gridSize + gridSize) % gridSize;
+    if (isNaN(cameraX)) cameraX = 0; // Fallback, falls die Kamera kaputt geht
+    const cellSize = 50;
+    
+    // Dies ist der Bezugspunkt für alles, was in der Welt steht
+    const worldStartX = -cameraX + CANVAS_WIDTH / 2;
+    const worldStartY = -cameraY + CANVAS_HEIGHT / 2;
 
-    for (let x = offsetX; x < CANVAS_WIDTH; x += gridSize) {
-        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, CANVAS_HEIGHT); ctx.stroke();
+    // 1. Hintergrund zeichnen
+    ctx.fillStyle = '#1a1a2e'; 
+    ctx.fillRect(worldStartX, worldStartY, WORLD_WIDTH, WORLD_HEIGHT);
+
+    // 2. Goldener Rahmen (Hier siehst du, wo die Welt aufhört!)
+    ctx.strokeStyle = '#ffcc00';
+    ctx.lineWidth = 15;
+    ctx.strokeRect(worldStartX, worldStartY, WORLD_WIDTH, WORLD_HEIGHT);
+
+    // 3. Gitter zeichnen
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+    ctx.lineWidth = 1;
+
+    // Vertikale Linien
+    for (let x = 0; x <= WORLD_WIDTH; x += cellSize) {
+        const drawX = worldStartX + x;
+        // Nur zeichnen, wenn auf dem Bildschirm sichtbar
+        if (drawX >= 0 && drawX <= CANVAS_WIDTH) {
+            ctx.beginPath();
+            ctx.moveTo(drawX, worldStartY);
+            ctx.lineTo(drawX, worldStartY + WORLD_HEIGHT);
+            ctx.stroke();
+        }
     }
-    for (let y = offsetY; y < CANVAS_HEIGHT; y += gridSize) {
-        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(CANVAS_WIDTH, y); ctx.stroke();
+
+    // Horizontale Linien
+    for (let y = 0; y <= WORLD_HEIGHT; y += cellSize) {
+        const drawY = worldStartY + y;
+        if (drawY >= 0 && drawY <= CANVAS_HEIGHT) {
+            ctx.beginPath();
+            ctx.moveTo(worldStartX, drawY);
+            ctx.lineTo(worldStartX + WORLD_WIDTH, drawY);
+            ctx.stroke();
+        }
     }
 }
 
 function drawPlayer() {
     ctx.save();
-    ctx.translate(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2); // Kamera bleibt zentriert
+    
+    ctx.translate(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2);
 
-    // Bewegungserkennung
+    // Bewegungserkennung (bleibt gleich)
     const dx = player.x - (player.lastX || player.x);
     const dy = player.y - (player.lastY || player.y);
     const isMoving = Math.abs(dx) > 0.1 || Math.abs(dy) > 0.1;
@@ -1992,9 +2067,7 @@ function drawPlayer() {
     const wobbleAngle = isMoving ? Math.sin(Date.now() / 120) * 0.15 : 0; 
     const bobY = isMoving ? Math.abs(Math.sin(Date.now() / 120)) * 4 : 0; 
     
-    // ===== HIER IST DER FIX =====
-    // Da dein Bild von Natur aus nach LINKS guckt, müssen wir es spiegeln, 
-    // wenn der Winkel (player.angle) nach RECHTS zeigt (cos > 0).
+    // Spiegelung
     const faceRight = Math.cos(player.angle) > 0; 
 
     // Transformationen
@@ -2002,9 +2075,8 @@ function drawPlayer() {
     ctx.rotate(wobbleAngle);
     
     if (faceRight) {
-        ctx.scale(-1, 1); // Spiegelt das Bild horizontal
+        ctx.scale(-1, 1);
     }
-    // ============================
 
     const imgW = 64;
     const imgH = 94;
@@ -2012,7 +2084,6 @@ function drawPlayer() {
     ctx.shadowBlur = 15;
     ctx.shadowColor = '#00ffcc'; 
 
-    // Spielerbild zeichnen
     if (playerSprite.complete && playerSprite.naturalWidth !== 0) {
         ctx.drawImage(playerSprite, -imgW / 2, -imgH * 0.6, imgW, imgH);
     } else {
@@ -2021,17 +2092,6 @@ function drawPlayer() {
     }
 
     ctx.restore();
-
-    // === HITBOX-TESTER (Zum Testen einfach die /* und */ löschen!) ===
-    /*
-    ctx.save();
-    ctx.strokeStyle = 'rgba(255, 0, 0, 0.8)';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.arc(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, player.size, 0, Math.PI * 2);
-    ctx.stroke();
-    ctx.restore();
-    */
 }
 
 function drawEnemy(e) {
@@ -2048,8 +2108,8 @@ function drawEnemy(e) {
         const pulseSpeed = 100 + (hpRatio * 200); 
         const pulse = Math.sin(Date.now() / pulseSpeed) * 0.15; 
         const currentSize = e.baseSize * (1 + pulse); 
-        const imgW = currentSize * 2; 
-        const imgH = currentSize * 2;
+        const imgW = currentSize * 1.9; // Breite des Bildes
+        const imgH = currentSize * 2.2; // Höhe des Bildes (soldatiger / hochkant)
 
         // Prüfen, ob der Boss gerade "schreit" (Dauer jetzt 1000ms)
         const timeSinceAttack = Date.now() - (e.lastAttackTime || 0);
@@ -2095,9 +2155,10 @@ if (isScreaming) {
         if (minibossSprite.complete && minibossSprite.naturalWidth !== 0) {
             ctx.drawImage(minibossSprite, -imgW / 2, -imgH / 2, imgW, imgH);
         } else {
+            // Falls kein Bild geladen ist, zeichnen wir ein Rechteck, das auch hochkant ist
             ctx.fillStyle = e.color || '#9900ff';
             ctx.fillRect(-imgW / 2, -imgH / 2, imgW, imgH);
-        }
+}
         
         ctx.restore();
         return; 
@@ -2202,6 +2263,54 @@ function drawXpCrystals() {
     }
 }
 
+// ==== CASINO-EFFEKT (V4.0: ECHTE ROTATION) ====
+function drawRadiantCasinoEffect(cx, cy, maxRadius) {
+    const now = Date.now();
+    
+    // Geschwindigkeit erhöht (von 3000 auf 1000), damit es sich spürbar dreht
+    const rotation = (Date.now() / 2000) % (Math.PI * 2);
+
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(-rotation); // Jetzt dreht sich das gesamte Koordinatensystem (MINUS für gegen-Uhrzeiger)
+
+    // --- 1. DIE STRAHLEN (DREHEND) ---
+    for (let i = 0; i < 12; i++) {
+        ctx.rotate(Math.PI / 6); // Immer ein Stück weiter rotieren pro Strahl
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.lineTo(0, -maxRadius * 2); // Schön lang, damit es den Screen füllt
+        
+        // Transparenz für bessere Lesbarkeit
+        ctx.strokeStyle = i % 2 === 0 ? 'rgba(255, 215, 0, 0.15)' : 'rgba(255, 255, 255, 0.05)';
+        ctx.lineWidth = 80; 
+        ctx.stroke();
+    }
+    ctx.restore(); // Rotation hier beenden, damit Partikel ihr eigenes Ding machen
+    
+    // --- 2. DIE PARTIKEL (BLEIBEN GEEIGNET SCHÖN) ---
+    ctx.save();
+    ctx.shadowBlur = 10;
+    ctx.shadowColor = 'rgba(255, 215, 0, 0.5)';
+
+    for (let i = 0; i < 60; i++) {
+        // Partikel-Position berechnen
+        const angle = (i * Math.PI * 2 / 60) + (now / 3000); 
+        const dist = (maxRadius * 0.4) + Math.sin(now / 500 + i) * 50; 
+        
+        const sx = cx + Math.cos(angle) * dist;
+        const sy = cy + Math.sin(angle) * dist;
+        const size = 2 + Math.sin(now / 300 + i) * 2;
+        
+        ctx.fillStyle = (i % 2 === 0) ? '#ffd700' : '#ffffff';
+        
+        ctx.beginPath();
+        ctx.arc(sx, sy, size, 0, Math.PI * 2);
+        ctx.fill();
+    }
+    ctx.restore();
+}
+
 // ===== MAIN MENÜ =====
 function drawMainMenu() {
     ctx.fillStyle = '#0a0a1a';
@@ -2290,8 +2399,6 @@ function drawMainMenu() {
 function drawCharSelect() {
     ctx.fillStyle = '#0a0a1a';
     ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
-
-    drawGrid();
 
     // Hintergrund-Partikel
     for (const p of menuParticles) {
@@ -2430,8 +2537,6 @@ function drawWeaponSelect() {
     ctx.fillStyle = '#0a0a1a';
     ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
-    drawGrid();
-
     for (const p of menuParticles) {
         p.x += p.vx;
         p.y += p.vy;
@@ -2542,7 +2647,7 @@ function drawWeaponSelect() {
 
     ctx.fillStyle = '#666666';
     ctx.font = '14px Arial';
-    ctx.fillText('ESC = Zurück | Klicke zum Starten', CANVAS_WIDTH / 2, CANVAS_HEIGHT - 30);
+    ctx.fillText('ESC = Zurück | Wähle eine Waffe zum Starten', CANVAS_WIDTH / 2, CANVAS_HEIGHT - 30);
 
     ctx.textAlign = 'left';
 }
@@ -2758,56 +2863,72 @@ function drawPauseMenu() {
     ctx.shadowBlur = 20;
     ctx.shadowColor = '#00ffcc';
     ctx.font = 'bold 56px Arial';
-    ctx.fillText('PAUSE', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 80);
+    ctx.fillText('PAUSE', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 100);
     ctx.shadowBlur = 0;
 
-    const cb = pauseContinueBtn;
-    const bx = cb.x();
-    const by = cb.y();
+    const bw = 260;
+    const bh = 50;
+    const cx = CANVAS_WIDTH / 2;
+
+    // 1. Weiter Button
+    const by1 = CANVAS_HEIGHT / 2 - 20;
     ctx.fillStyle = 'rgba(0, 200, 150, 0.3)';
     ctx.strokeStyle = '#00cc99';
     ctx.lineWidth = 2;
-    roundRect(ctx, bx - cb.w/2, by - cb.h/2, cb.w, cb.h, 10);
-    ctx.fill();
-    ctx.stroke();
+    roundRect(ctx, cx - bw/2, by1, bw, bh, 10);
+    ctx.fill(); ctx.stroke();
     ctx.fillStyle = '#00cc99';
     ctx.font = 'bold 22px Arial';
-    ctx.fillText('Weiter (ESC)', bx, by + 8);
+    ctx.fillText('Weiter (ESC)', cx, by1 + 32);
 
-    const mb = pauseMenuBtn;
-    const mbx = mb.x();
-    const mby = mb.y();
+    // 2. Optionen Button
+    const by2 = CANVAS_HEIGHT / 2 + 50;
+    ctx.fillStyle = 'rgba(100, 100, 255, 0.3)';
+    ctx.strokeStyle = '#6666ff';
+    ctx.lineWidth = 2;
+    roundRect(ctx, cx - bw/2, by2, bw, bh, 10);
+    ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#6666ff';
+    ctx.font = 'bold 22px Arial';
+    ctx.fillText('Optionen', cx, by2 + 32);
+
+    // 3. Menü Button
+    const by3 = CANVAS_HEIGHT / 2 + 120;
     ctx.fillStyle = 'rgba(200, 50, 50, 0.3)';
     ctx.strokeStyle = '#cc4444';
     ctx.lineWidth = 2;
-    roundRect(ctx, mbx - mb.w/2, mby - mb.h/2, mb.w, mb.h, 10);
-    ctx.fill();
-    ctx.stroke();
+    roundRect(ctx, cx - bw/2, by3, bw, bh, 10);
+    ctx.fill(); ctx.stroke();
     ctx.fillStyle = '#cc4444';
     ctx.font = 'bold 22px Arial';
-    ctx.fillText('Zurück zum Menü (M)', mbx, mby + 8);
+    ctx.fillText('Hauptmenü (M)', cx, by3 + 32);
 
     ctx.textAlign = 'left';
 }
 
 function roundRect(ctx, x, y, w, h, r) {
+    if (isNaN(x) || isNaN(y) || isNaN(w) || isNaN(h)) return; // Crash-Schutz
     ctx.beginPath();
-    ctx.moveTo(x + r, y);
-    ctx.lineTo(x + w - r, y);
-    ctx.quadraticCurveTo(x + w, y, x + w, y + r);
-    ctx.lineTo(x + w, y + h - r);
-    ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
-    ctx.lineTo(x + r, y + h);
-    ctx.quadraticCurveTo(x, y + h, x, y + h - r);
-    ctx.lineTo(x, y + r);
-    ctx.quadraticCurveTo(x, y, x + r, y);
-    ctx.closePath();
+    if (ctx.roundRect) {
+        ctx.roundRect(x, y, w, h, r);
+    } else {
+        if (w < 2 * r) r = w / 2;
+        if (h < 2 * r) r = h / 2;
+        ctx.moveTo(x + r, y);
+        ctx.arcTo(x + w, y, x + w, y + h, r);
+        ctx.arcTo(x + w, y + h, x, y + h, r);
+        ctx.arcTo(x, y + h, x, y, r);
+        ctx.arcTo(x, y, x + w, y, r);
+        ctx.closePath();
+    }
 }
 
 // ===== LEVEL-UP MENÜ =====
 function drawLevelUpMenu() {
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+    ctx.fillStyle = 'rgba(5, 5, 15, 0.85)';
     ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+// 2. CASINO-EFFEKT REINBALLERN (In der Mitte des Bildschirms)
+    drawRadiantCasinoEffect(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, Math.max(CANVAS_WIDTH, CANVAS_HEIGHT) * 0.6);
 
     ctx.textAlign = 'center';
 
@@ -2938,9 +3059,7 @@ function drawOptionsMenu() {
     ctx.fillStyle = '#0a0a1a';
     ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
-    drawGrid();
-
-    // Hintergrund-Partikel
+     // Hintergrund-Partikel
     for (const p of menuParticles) {
         p.x += p.vx;
         p.y += p.vy;
@@ -2960,22 +3079,34 @@ function drawOptionsMenu() {
         ctx.restore();
     }
 
-    // Back button (mobile-friendly)
-    const backBtnX = 20;
-    const backBtnY = 20;
-    const backBtnW = 160;
-    const backBtnH = 52;
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.08)';
+    // Sicherheits-Fallback für die Lautstärke
+    const vol = (typeof masterVolume === 'number' && !isNaN(masterVolume)) ? masterVolume : 0.5;
+
+    // KORREKTUR: Prüfen, ob die Maus über dem Zurück-Button schwebt
+    const isBackHovered = (typeof lastHoveredElement !== 'undefined' && lastHoveredElement === 'options_back');
+
+    // Back button (oben links)
+    const backBtnX = 20, backBtnY = 20, backBtnW = 160, backBtnH = 52;
+    
+    // Hintergrund leuchtet bei Hover stärker auf
+    ctx.fillStyle = isBackHovered ? 'rgba(0, 255, 204, 0.18)' : 'rgba(255, 255, 255, 0.08)';
     roundRect(ctx, backBtnX, backBtnY, backBtnW, backBtnH, 14);
     ctx.fill();
+    
+    // Rahmen wird bei Hover dicker und glüht
     ctx.strokeStyle = '#00ffcc';
-    ctx.lineWidth = 2;
+    ctx.lineWidth = isBackHovered ? 3 : 2;
+    if (isBackHovered) {
+        ctx.shadowBlur = 20;
+        ctx.shadowColor = '#00ffcc';
+    }
     ctx.stroke();
+    ctx.shadowBlur = 0; // Schatten direkt wieder zurücksetzen!
+
     ctx.fillStyle = '#00ffcc';
     ctx.font = 'bold 18px Arial';
-    ctx.textAlign = 'left';
-    ctx.fillText('Zurück', backBtnX + 16, backBtnY + backBtnH / 2 + 6);
     ctx.textAlign = 'center';
+    ctx.fillText('Zurück', backBtnX + backBtnW / 2, backBtnY + backBtnH / 2 + 6);
 
     // Titel
     ctx.shadowBlur = 30;
@@ -2989,42 +3120,61 @@ function drawOptionsMenu() {
     // Einstellungen-Startposition
     const startY = CANVAS_HEIGHT / 2 - 50;
     const lineHeight = 35;
+    const leftX = CANVAS_WIDTH / 2 - 150;
 
-    // Spieleinstellungen
+    // Audio Überschrift
     ctx.fillStyle = '#00ffcc';
     ctx.font = 'bold 20px Arial';
     ctx.textAlign = 'left';
-    const leftX = CANVAS_WIDTH / 2 - 150;
-    ctx.fillText('Spieleinstellungen:', leftX, startY);
+    ctx.fillText('Audio-Einstellungen:', leftX, startY);
     
+    // Text Prozentanzeige
     ctx.fillStyle = '#aaaaaa';
     ctx.font = '18px Arial';
-    ctx.fillText('Schwierigkeitsgrad (Normal)', leftX + 30, startY + lineHeight);
+    ctx.fillText(`Gesamtlautstärke: ${Math.round(vol * 100)}%`, leftX + 30, startY + lineHeight);
 
-    // Audio
+    // Interaktiver Slider Zeichnen
+    const sliderX = leftX + 30;
+    const sliderY = startY + lineHeight * 2;
+    const sliderW = 300;
+    const sliderH = 10;
+
+    // Slider Hintergrund
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
+    roundRect(ctx, sliderX, sliderY, sliderW, sliderH, 5);
+    ctx.fill();
+
+    // Slider Ausfüllung
+    ctx.fillStyle = '#00ffcc';
+    roundRect(ctx, sliderX, sliderY, sliderW * vol, sliderH, 5);
+    ctx.fill();
+
+    // Slider-Knopf
+    ctx.beginPath();
+    ctx.arc(sliderX + sliderW * vol, sliderY + sliderH / 2, 12, 0, Math.PI * 2);
+    ctx.fillStyle = '#ffffff';
+    ctx.fill();
+    ctx.strokeStyle = '#00ffcc';
+    ctx.lineWidth = 2;
+    ctx.shadowBlur = 10;
+    ctx.shadowColor = '#00ffcc';
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+
+    // Grafik
     ctx.fillStyle = '#00ffcc';
     ctx.font = 'bold 20px Arial';
-    ctx.fillText('Audio:', leftX, startY + lineHeight * 2.5);
+    ctx.fillText('Grafik:', leftX, startY + lineHeight * 4);
     
     ctx.fillStyle = '#aaaaaa';
     ctx.font = '18px Arial';
-    ctx.fillText('Musik-Lautstärke (80%)  |  Soundeffekte (100%)', leftX + 30, startY + lineHeight * 3.5);
-
-    // Video
-    ctx.fillStyle = '#00ffcc';
-    ctx.font = 'bold 20px Arial';
-    ctx.fillText('Video:', leftX, startY + lineHeight * 5);
-    
-    ctx.fillStyle = '#aaaaaa';
-    ctx.font = '18px Arial';
-    ctx.fillText('Kontrast (Standard)', leftX + 30, startY + lineHeight * 6);
+    ctx.fillText('Partikeleffekte (Aktiviert)', leftX + 30, startY + lineHeight * 5);
 
     // Hilfetext unten
     ctx.textAlign = 'center';
     ctx.fillStyle = '#666666';
     ctx.font = '14px Arial';
-    ctx.fillText('Tippe oben links auf "Zurück"', CANVAS_WIDTH / 2, CANVAS_HEIGHT - 30);
-
+    ctx.fillText('Klicke und ziehe den Regler, um die Lautstärke zu ändern.', CANVAS_WIDTH / 2, CANVAS_HEIGHT - 30);
     ctx.textAlign = 'left';
 }
 
@@ -3106,86 +3256,119 @@ function checkAutoFire() {
     fireBullet(dx / length, dy / length);
 }
 
-// ===== GAME LOOP =====
-function gameLoop() {
-    // Ruft die Automatik für das MG im Takt des Spiels auf
-    checkAutoFire();
+// ===== NEUE HILFSFUNKTION FÜR MENÜ-HINTERGRUND =====
+function drawMenuBackground() {
+    // 1. Hintergrund
+    ctx.fillStyle = '#0a0a1a';
+    ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
+    // 2. Zeichne DIE ERSTEN (mainMenuParticles)
+    for (const p of mainMenuParticles) {
+        ctx.fillStyle = p.color;
+        ctx.globalAlpha = p.alpha;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
+    // 3. Zeichne DIE ZWEITEN (menuParticles)
+    for (const p of menuParticles) {
+        ctx.fillStyle = p.color;
+        ctx.globalAlpha = p.alpha;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        ctx.fill();
+    }
+    
+    ctx.globalAlpha = 1.0; // Wichtig: Reset!
+}
+
+// ===== KORRIGIERTER GAME LOOP =====
+function gameLoop() {
+    // 1. ALLES LÖSCHEN
+    ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+    // 2. LOGIK
+    checkAutoFire();
     update();
 
-    // Zeichnen
-    if (gameState === 'MAIN_MENU') drawMainMenu();
-    else if (gameState === 'OPTIONS') drawOptionsMenu();
-    else if (gameState === 'CHAR_SELECT') drawCharSelect();
-    else if (gameState === 'WEAPON_SELECT') drawWeaponSelect();
-    else if (gameState === 'MENU') drawMenu();
+    // 3. ZEICHNEN
+    // Alle Menü-Zustände zusammengefasst
+    if (['MAIN_MENU', 'OPTIONS', 'CHAR_SELECT', 'WEAPON_SELECT', 'MENU'].includes(gameState)) {
+        drawMenuBackground(); // Zeichnet jetzt überall den Hintergrund + Partikel
+        
+        if (gameState === 'MAIN_MENU') drawMainMenu();
+        else if (gameState === 'OPTIONS') drawOptionsMenu();
+        else if (gameState === 'CHAR_SELECT') drawCharSelect();
+        else if (gameState === 'WEAPON_SELECT') drawWeaponSelect();
+        else if (gameState === 'MENU') drawMenu();
+    }
+    // Alle Spiel-Zustände
     else if (gameState === 'PLAYING') {
         ctx.fillStyle = '#0a0a1a';
         ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
         
-        // 1. WELT-ZOOM STARTEN (Nur wenn mobil gespielt wird)
         ctx.save(); 
         if (isMobile) {
             ctx.translate(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2);
-            ctx.scale(0.75, 0.75); // 0.75 bedeutet 75% Größe = weiter herausgezoomt!
+            ctx.scale(0.75, 0.75);
             ctx.translate(-CANVAS_WIDTH / 2, -CANVAS_HEIGHT / 2);
         }
 
-        // Alles was hier drinnen steht, wird herausgezoomt
         drawGrid();
         drawXpCrystals();
         for (const e of enemies) drawEnemy(e);
         for (const b of bullets) drawBullet(b);
-        // Draw chests in world
+        
+        // Truhen
         for (const ch of chests) {
             if (ch.opened) continue;
+            const w = 48; const h = 36;
             const dx = ch.x - cameraX + CANVAS_WIDTH / 2;
             const dy = ch.y - cameraY + CANVAS_HEIGHT / 2;
             ctx.save();
-            ctx.fillStyle = 'gold';
-            ctx.shadowBlur = 20;
-            ctx.shadowColor = '#ffd700';
-            roundRect(ctx, dx - 16, dy - 12, 32, 24, 6);
-            ctx.fill();
+            ctx.strokeStyle = '#4a2500'; ctx.lineWidth = 3;
+            ctx.fillStyle = '#FFD700'; ctx.shadowBlur = 15; ctx.shadowColor = '#FFD700';
+            roundRect(ctx, dx - w/2, dy - h/2, w, h, 6);
+            ctx.fill(); ctx.stroke();
+            ctx.fillStyle = '#DAA520'; 
+            roundRect(ctx, dx - w/2, dy - h/2, w, h/3, 6);
+            ctx.fill(); ctx.stroke();
+            ctx.fillStyle = '#FFF8DC'; ctx.fillRect(dx - 6, dy - 2, 12, 8); 
+            ctx.fillStyle = '#8B4513'; ctx.fillRect(dx - 3, dy + 1, 6, 3);
             ctx.restore();
         }
+
         drawPlayer();
         drawBossPointer();
         drawParticles();
-
-        // 2. WELT-ZOOM BEENDEN (Die UI soll normal groß gezeichnet werden)
         ctx.restore(); 
 
-        // Ab hier wird alles wieder in normaler Größe gezeichnet (Schnittstellen & UI)
         drawMenuButton();
 
-        // === XP-Balken (ganz oben, 8px, Neon-Blau/Lila-Verlauf) ===
+        // XP-Balken
         const xpBarH = 8;
         const xpBarX = 20;
         const xpBarW = CANVAS_WIDTH - xpBarX;
         const xpFillW = xpBarW * (player.xp / player.xpToNext);
-
         ctx.fillStyle = 'rgba(30, 30, 60, 0.8)';
         ctx.fillRect(xpBarX, 0, xpBarW, xpBarH);
-
         const xpGrad = ctx.createLinearGradient(xpBarX, 0, xpBarX + xpBarW, 0);
         xpGrad.addColorStop(0, '#4488ff');
         xpGrad.addColorStop(1, '#aa44ff');
         ctx.fillStyle = xpGrad;
         ctx.fillRect(xpBarX, 0, xpFillW, xpBarH);
 
-        // LVL X unter dem XP-Balken
+        // UI-Elemente
         ctx.textAlign = 'left';
         ctx.fillStyle = '#00ffcc';
         ctx.font = 'bold 14px Arial';
         ctx.fillText('LVL ' + player.level, 20, 25);
-
-        // Score unter LVL
         ctx.fillStyle = '#ffffff';
         ctx.font = 'bold 20px Arial';
         ctx.fillText('Score: ' + score, 20, 50);
 
-        // Lebensbalken (unter Score)
+        // Lebensbalken
         const hpBarW = 200;
         const hpBarH = 18;
         const hpBarX = 20;
@@ -3197,8 +3380,6 @@ function gameLoop() {
         ctx.strokeStyle = '#ffffff';
         ctx.lineWidth = 1;
         ctx.strokeRect(hpBarX, hpBarY, hpBarW, hpBarH);
-
-        // HP-Text zentriert auf dem Lebensbalken
         ctx.fillStyle = '#ffffff';
         ctx.font = 'bold 12px Arial';
         ctx.textAlign = 'center';
@@ -3214,6 +3395,7 @@ function gameLoop() {
         const secs = Math.floor(gameTime % 60);
         ctx.fillText(`${mins}:${secs.toString().padStart(2, '0')}`, CANVAS_WIDTH / 2, 30);
 
+        // Boss Balken
         const boss = enemies.find(e => e.isBoss || e.type === 'MINIBOSS');
         if (boss) {
             const bossBarW = CANVAS_WIDTH * 0.6;
@@ -3222,15 +3404,12 @@ function gameLoop() {
             const bossBarY = 44;
             const hpPercent = Math.max(0, Math.min(1, (boss.health !== undefined ? boss.health : boss.hp) / (boss.maxHealth !== undefined ? boss.maxHealth : boss.maxHp)));
             const bossFillW = bossBarW * hpPercent;
-
             ctx.fillStyle = 'rgba(30, 30, 30, 0.9)';
             roundRect(ctx, bossBarX, bossBarY, bossBarW, bossBarH, 14);
             ctx.fill();
-
             ctx.fillStyle = 'rgba(255, 60, 60, 0.95)';
             roundRect(ctx, bossBarX + 2, bossBarY + 2, Math.max(4, bossFillW - 4), bossBarH - 4, 12);
             ctx.fill();
-
             ctx.fillStyle = '#ffffff';
             ctx.font = 'bold 14px Arial';
             ctx.textAlign = 'center';
@@ -3240,28 +3419,22 @@ function gameLoop() {
         }
 
         ctx.textAlign = 'left';
-
         if (isMobile) drawMobileControls();
 
-        // NEU: Roter Blink-Effekt am Rand (nachdem alles andere gezeichnet wurde)
+        // Roter Schaden-Effekt
         if (screenDamageFlash > 0) {
             ctx.save();
-            ctx.setTransform(1, 0, 0, 1, 0, 0); // Kamera-Transformation ignorieren
-            
-            const gradient = ctx.createRadialGradient(
-                CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, CANVAS_WIDTH * 0.2,
-                CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, CANVAS_WIDTH * 0.6
-            );
+            ctx.setTransform(1, 0, 0, 1, 0, 0); 
+            const gradient = ctx.createRadialGradient(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, CANVAS_WIDTH * 0.2, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, CANVAS_WIDTH * 0.6);
             gradient.addColorStop(0, 'rgba(255, 0, 0, 0)');
             gradient.addColorStop(1, `rgba(255, 0, 0, ${screenDamageFlash})`);
-            
             ctx.fillStyle = gradient;
             ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
             ctx.restore();
-            
-            screenDamageFlash -= 0.03; // Fade-Out Speed
+            screenDamageFlash -= 0.03;
             if (screenDamageFlash < 0) screenDamageFlash = 0;
         }
+        drawMinimap();
     }
     else if (gameState === 'PAUSED') {
         ctx.fillStyle = '#0a0a1a';
@@ -3275,6 +3448,17 @@ function gameLoop() {
         drawPauseMenu();
     }
     else if (gameState === 'CHEST_OPEN') {
+        // 1. Spielfeld im Hintergrund zeichnen
+        ctx.fillStyle = '#0a0a1a';
+        ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+        drawGrid();
+        drawXpCrystals();
+        for (const e of enemies) drawEnemy(e);
+        for (const b of bullets) drawBullet(b);
+        drawPlayer();
+        drawParticles();
+
+        // 2. Das Menü drüberlegen (das jetzt transparent sein kann)
         drawChestMenu();
     }
     else if (gameState === 'LEVEL_UP') {
@@ -3296,93 +3480,78 @@ function gameLoop() {
 }
 
 function drawChestMenu() {
-    ctx.fillStyle = 'rgba(0,0,0,0.85)';
+    // 1. Hintergrund abdunkeln (Ganzflächig, wie beim Level Up)
+    ctx.fillStyle = 'rgba(5, 5, 15, 0.85)';
     ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
-    ctx.fillStyle = '#111111';
-    ctx.fillRect(40, 80, CANVAS_WIDTH - 80, CANVAS_HEIGHT - 160);
-    ctx.strokeStyle = '#444444';
-    ctx.lineWidth = 2;
-    ctx.strokeRect(40, 80, CANVAS_WIDTH - 80, CANVAS_HEIGHT - 160);
-
+    // 2. CASINO-EFFEKT REINBALLERN (Immer unter der UI)
+    drawRadiantCasinoEffect(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, Math.max(CANVAS_WIDTH, CANVAS_HEIGHT) * 0.7);
+    
+    // 3. UI Container (Wir zeichnen kein volles Rechteck mehr als Hintergrund, 
+    // sondern nutzen die Transparenz des Screens)
     ctx.textAlign = 'center';
     ctx.fillStyle = '#ffd700';
-    ctx.font = 'bold 34px Arial';
-    ctx.fillText('LEGENDÄRE TRUHE GEÖFFNET!', CANVAS_WIDTH / 2, 150);
+    ctx.font = 'bold 36px Arial';
+    ctx.shadowBlur = 10;
+    ctx.shadowColor = 'black';
+    ctx.fillText('LEGENDÄRE TRUHE', CANVAS_WIDTH / 2, 120);
+    ctx.shadowBlur = 0;
 
     ctx.fillStyle = '#ffffff';
     ctx.font = '20px Arial';
-    ctx.fillText('Wähle deine Belohnung:', CANVAS_WIDTH / 2, 200);
+    ctx.fillText('Wähle deine Belohnung:', CANVAS_WIDTH / 2, 160);
 
-    const optW = Math.min(380, CANVAS_WIDTH * 0.4);
-    const optH = 110;
+    // Layout der Auswahl-Karten
+    const optW = Math.min(320, CANVAS_WIDTH * 0.35);
+    const optH = 140;
     const gap = 40;
     const leftX = CANVAS_WIDTH / 2 - optW - gap / 2;
     const rightX = CANVAS_WIDTH / 2 + gap / 2;
-    const optY = 240;
+    const optY = 220;
 
+    // ... (Hier bleibt deine Hover/Klick-Logik für leftHovered / rightHovered genau gleich) ...
     const leftHovered = chestHoveredOption === 'multishot';
     const rightHovered = chestHoveredOption === 'double';
     const continueHovered = chestHoveredOption === 'continue';
 
-    const leftFill = chestSelectedOption === 'multishot'
-        ? 'rgba(255,170,0,0.18)'
-        : leftHovered
-            ? 'rgba(255,255,255,0.14)'
-            : 'rgba(255,255,255,0.04)';
-    const rightFill = chestSelectedOption === 'double'
-        ? 'rgba(255,170,0,0.18)'
-        : rightHovered
-            ? 'rgba(255,255,255,0.14)'
-            : 'rgba(255,255,255,0.04)';
-    const continueFill = chestSelectedOption
-        ? (continueHovered ? 'rgba(255,170,0,0.24)' : 'rgba(255,170,0,0.18)')
-        : (continueHovered ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.06)');
+    // Auswahl-Boxen zeichnen (Dezenter, wie beim Level Up)
+    drawOptionBox(leftX, optY, optW, optH, 'Multishot', '+ 100% Projektile', leftHovered, chestSelectedOption === 'multishot');
+    drawOptionBox(rightX, optY, optW, optH, 'Giga-Schaden', '+ 100% Schaden', rightHovered, chestSelectedOption === 'double');
 
-    roundRect(ctx, leftX - 10, optY - 5, optW + 20, optH + 10, 20);
-    ctx.fillStyle = leftFill;
-    ctx.fill();
-    ctx.strokeStyle = leftHovered ? '#ffffff' : '#ffaa00';
-    ctx.lineWidth = leftHovered ? 4 : 3;
-    ctx.stroke();
-    ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 20px Arial';
-    ctx.textAlign = 'left';
-    ctx.fillText('Multishot', leftX + 18, optY + 38);
-    ctx.fillStyle = '#eae0c6';
-    ctx.font = '16px Arial';
-    ctx.fillText('+ 100% Projektile', leftX + 18, optY + 70);
-
-    roundRect(ctx, rightX - 10, optY - 5, optW + 20, optH + 10, 20);
-    ctx.fillStyle = rightFill;
-    ctx.fill();
-    ctx.strokeStyle = rightHovered ? '#ffffff' : '#ffaa00';
-    ctx.lineWidth = rightHovered ? 4 : 3;
-    ctx.stroke();
-    ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 20px Arial';
-    ctx.fillText('Giga-Schaden', rightX + 18, optY + 38);
-    ctx.fillStyle = '#eae0c6';
-    ctx.font = '16px Arial';
-    ctx.fillText('+ 100% Schaden', rightX + 18, optY + 70);
-
-    const bw = 260;
-    const bh = 64;
+    // "Weiter"-Button
+    const bw = 200;
+    const bh = 50;
     const bx = CANVAS_WIDTH / 2 - bw / 2;
-    const by = CANVAS_HEIGHT - 150;
-    roundRect(ctx, bx, by, bw, bh, 20);
-    ctx.fillStyle = continueFill;
+    const by = CANVAS_HEIGHT - 120;
+    
+    ctx.fillStyle = continueHovered ? 'rgba(255, 215, 0, 0.3)' : 'rgba(255, 255, 255, 0.1)';
+    roundRect(ctx, bx, by, bw, bh, 15);
     ctx.fill();
-    ctx.strokeStyle = continueHovered ? '#ffffff' : '#ffaa00';
-    ctx.lineWidth = continueHovered ? 4 : 3;
+    ctx.strokeStyle = continueHovered ? '#ffd700' : '#ffffff';
+    ctx.lineWidth = 2;
     ctx.stroke();
 
-    ctx.fillStyle = chestSelectedOption ? '#ffffff' : '#cccccc';
-    ctx.font = 'bold 22px Arial';
-    ctx.textAlign = 'center';
-    ctx.fillText('Weiter', CANVAS_WIDTH / 2, by + bh / 2 + 8);
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 20px Arial';
+    ctx.fillText('Weiter', CANVAS_WIDTH / 2, by + bh / 2 + 7);
+}
 
-    ctx.textAlign = 'left';
+// Hilfsfunktion damit der Code sauber bleibt
+function drawOptionBox(x, y, w, h, title, desc, hovered, selected) {
+    ctx.fillStyle = selected ? 'rgba(255, 215, 0, 0.2)' : (hovered ? 'rgba(255, 255, 255, 0.15)' : 'rgba(255, 255, 255, 0.05)');
+    roundRect(ctx, x, y, w, h, 20);
+    ctx.fill();
+    
+    ctx.strokeStyle = selected ? '#ffd700' : (hovered ? '#ffffff' : '#444444');
+    ctx.lineWidth = hovered || selected ? 3 : 1;
+    ctx.stroke();
+
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 22px Arial';
+    ctx.fillText(title, x + w / 2, y + 50);
+    ctx.fillStyle = '#cccccc';
+    ctx.font = '16px Arial';
+    ctx.fillText(desc, x + w / 2, y + 90);
 }
 
 // ===== BOSS POINTER =====
