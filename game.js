@@ -14,6 +14,8 @@ function resizeCanvas() {
 resizeCanvas();
 window.addEventListener('resize', resizeCanvas);
 
+let levelGridData = {}; 
+const TILE_SIZE = 100; // Oder was auch immer du nutzt
 // Weltgröße festlegen
 const WORLD_WIDTH = 6000;
 const WORLD_HEIGHT = 6000;
@@ -404,6 +406,22 @@ function initMenuParticles() {
 }
 initMenuParticles();
 initMainMenuParticles();
+// ==== LEVEL-GENERATION =====
+function initLevelGeneration() {
+    levelGridData = {}; // Reset
+    const cols = Math.ceil(WORLD_WIDTH / 50); // 50 ist deine cellSize
+    const rows = Math.ceil(WORLD_HEIGHT / 50);
+
+    for (let x = 0; x < cols; x++) {
+        for (let y = 0; y < rows; y++) {
+            // Speichere die Werte für jedes Tile
+            levelGridData[`${x},${y}`] = {
+                shade: getDeterministicRandom(x, y), // Für die Grundfarbe
+                noise: getDeterministicRandom(y, x)  // Für die "Dreck-Flecken"
+            };
+        }
+    }
+}
 
 // ===== MENÜ-KLICK-ERKENNUNG =====
 function getClassAtPosition(tx, ty) {
@@ -1434,8 +1452,12 @@ function fireBullet(dirX, dirY) {
 
 // ===== SPIEL STARTEN =====
 function startGame(klasse) {
+    // 1. WICHTIG: erst Karte generieren bevor wir in PLAYING übergehen
+    initLevelGeneration();
+
     selectedClass = klasse;
     gameState = 'PLAYING';
+    
     resetPlayerPosition();
     resetGameState();
     lastShotTime = 0;
@@ -1661,6 +1683,12 @@ function increaseDifficulty() {
     }
 }
 setInterval(increaseDifficulty, 15000);
+
+function getDeterministicRandom(x, y) {
+    // Ein einfacher Hash, der aus Koordinaten eine Zahl macht
+    const hash = Math.sin(x * 12.9898 + y * 78.233) * 43758.5453;
+    return hash - Math.floor(hash);
+}
 
 function update() {
     const W_WIDTH = (typeof WORLD_WIDTH !== 'undefined') ? WORLD_WIDTH : 6000;
@@ -2006,48 +2034,55 @@ function drawMinimap() {
 
 
 function drawGrid() {
-    if (isNaN(cameraX)) cameraX = 0; // Fallback, falls die Kamera kaputt geht
+    if (isNaN(cameraX)) cameraX = 0; 
     const cellSize = 50;
     
-    // Dies ist der Bezugspunkt für alles, was in der Welt steht
+    // Bezugspunkt
     const worldStartX = -cameraX + CANVAS_WIDTH / 2;
     const worldStartY = -cameraY + CANVAS_HEIGHT / 2;
 
-    // 1. Hintergrund zeichnen
+    // 1. Hintergrund-Basis (Falls was fehlt)
     ctx.fillStyle = '#1a1a2e'; 
     ctx.fillRect(worldStartX, worldStartY, WORLD_WIDTH, WORLD_HEIGHT);
 
-    // 2. Goldener Rahmen (Hier siehst du, wo die Welt aufhört!)
+    // 2. Prozedurale Tiles zeichnen
+    // Wir iterieren über das Gitter und holen uns die Daten aus dem Cache
+    for (let x = 0; x < WORLD_WIDTH; x += cellSize) {
+        for (let y = 0; y < WORLD_HEIGHT; y += cellSize) {
+            
+            const drawX = worldStartX + x;
+            const drawY = worldStartY + y;
+
+            // Performance-Check: Nur zeichnen, was auf dem Bildschirm ist
+            if (drawX > -cellSize && drawX < CANVAS_WIDTH && drawY > -cellSize && drawY < CANVAS_HEIGHT) {
+                
+                // Index für das Grid-Cache
+                const gridX = Math.floor(x / cellSize);
+                const gridY = Math.floor(y / cellSize);
+                const data = levelGridData[`${gridX},${gridY}`] || { shade: 0.5, noise: 0.5 };
+
+                // A. Bodenfarbe (Erdtöne)
+                const lightness = 15 + (data.shade * 10); // Helligkeit leicht variieren
+                ctx.fillStyle = `hsl(30, 20%, ${lightness}%)`; 
+                ctx.fillRect(drawX, drawY, cellSize, cellSize);
+
+                // B. Kleine "Dreck-Flecken" (Textur-Ersatz)
+                if (data.noise > 0.75) {
+                    ctx.fillStyle = `hsl(30, 25%, ${lightness - 5}%)`; // Etwas dunkler
+                    ctx.fillRect(drawX + 10, drawY + 10, 10, 10);
+                }
+                if (data.noise > 0.9) {
+                    ctx.fillStyle = `hsl(30, 25%, ${lightness - 8}%)`;
+                    ctx.fillRect(drawX + 30, drawY + 30, 8, 8);
+                }
+            }
+        }
+    }
+
+    // 3. Goldener Rahmen (Grenze der Welt)
     ctx.strokeStyle = '#ffcc00';
     ctx.lineWidth = 15;
     ctx.strokeRect(worldStartX, worldStartY, WORLD_WIDTH, WORLD_HEIGHT);
-
-    // 3. Gitter zeichnen
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
-    ctx.lineWidth = 1;
-
-    // Vertikale Linien
-    for (let x = 0; x <= WORLD_WIDTH; x += cellSize) {
-        const drawX = worldStartX + x;
-        // Nur zeichnen, wenn auf dem Bildschirm sichtbar
-        if (drawX >= 0 && drawX <= CANVAS_WIDTH) {
-            ctx.beginPath();
-            ctx.moveTo(drawX, worldStartY);
-            ctx.lineTo(drawX, worldStartY + WORLD_HEIGHT);
-            ctx.stroke();
-        }
-    }
-
-    // Horizontale Linien
-    for (let y = 0; y <= WORLD_HEIGHT; y += cellSize) {
-        const drawY = worldStartY + y;
-        if (drawY >= 0 && drawY <= CANVAS_HEIGHT) {
-            ctx.beginPath();
-            ctx.moveTo(worldStartX, drawY);
-            ctx.lineTo(worldStartX + WORLD_WIDTH, drawY);
-            ctx.stroke();
-        }
-    }
 }
 
 function drawPlayer() {
