@@ -1457,7 +1457,7 @@ function startGame(klasse) {
 
     selectedClass = klasse;
     gameState = 'PLAYING';
-    
+
     resetPlayerPosition();
     resetGameState();
     lastShotTime = 0;
@@ -1690,6 +1690,18 @@ function getDeterministicRandom(x, y) {
     return hash - Math.floor(hash);
 }
 
+// Hilfsfunktionen für Highscore
+function getHighscore() {
+    return parseInt(localStorage.getItem('myGameHighscore') || 0);
+}
+
+function saveHighscore(newScore) {
+    const currentHighscore = getHighscore();
+    if (newScore > currentHighscore) {
+        localStorage.setItem('myGameHighscore', newScore);
+    }
+}
+
 function update() {
     const W_WIDTH = (typeof WORLD_WIDTH !== 'undefined') ? WORLD_WIDTH : 6000;
     const W_HEIGHT = (typeof WORLD_HEIGHT !== 'undefined') ? WORLD_HEIGHT : 6000;
@@ -1778,6 +1790,8 @@ function update() {
                     bullets.splice(i, 1);
                     if (player.health <= 0) {
                         player.health = 0;
+                        // Statt nur gameState = 'GAMEOVER'; machst du jetzt:
+                        saveHighscore(score); // <--- HIER den Score speichern
                         gameState = 'GAMEOVER';
                         if (spawnTimerId) clearInterval(spawnTimerId);
                     }
@@ -1942,6 +1956,8 @@ function update() {
 
                 if (player.health <= 0) {
                     player.health = 0;
+                    // Statt nur gameState = 'GAMEOVER'; machst du jetzt:
+                    saveHighscore(score); // <--- HIER den Score speichern
                     gameState = 'GAMEOVER';
                     if (spawnTimerId) clearInterval(spawnTimerId);
                 }
@@ -2427,6 +2443,18 @@ function drawMainMenu() {
     ctx.font = `bold 28px Arial`;
     ctx.fillText('Optionen', optBtnX, optBtnY + 10);
 
+    ctx.textAlign = 'left';
+    // Im Menü-Zeichnen-Code:
+    // Highscore Anzeige mit coolem Neon-Gold-Effekt
+    ctx.textAlign = 'center';
+    ctx.font = 'bold 22px Arial';
+    ctx.fillStyle = '#ffd700'; // Goldene Textfarbe
+    ctx.shadowBlur = 15;
+    ctx.shadowColor = '#ffaa00'; // Orangeroter Glow
+
+    ctx.fillText('🏆 Bester Run: ' + getHighscore() + ' Punkte 🏆', CANVAS_WIDTH / 2, 50);
+
+    ctx.shadowBlur = 0; // WICHTIG: Wieder auf 0 setzen, sonst leuchtet danach alles!
     ctx.textAlign = 'left';
 }
 
@@ -3227,10 +3255,22 @@ function drawGameOver() {
     ctx.fillText('GAME OVER', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 50);
     ctx.shadowBlur = 0;
 
+    // --- NEUER REKORD LOGIK ---
+    if (score >= getHighscore() && score > 0) {
+        ctx.fillStyle = '#ffff00'; // Gelb für den Rekord
+        ctx.font = 'bold 30px Arial';
+        ctx.shadowBlur = 10;
+        ctx.shadowColor = '#ffff00';
+        ctx.fillText('NEUER REKORD!', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 10);
+        ctx.shadowBlur = 0;
+    }
+    // --------------------------
+
     ctx.fillStyle = '#ffffff';
     ctx.font = '24px Arial';
-    ctx.fillText('Score: ' + score, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 10);
-    ctx.fillText('Level: ' + player.level, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 45);
+    ctx.fillText('Score: ' + score, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 30); // Etwas weiter nach unten geschoben
+    ctx.fillText('Highscore: ' + getHighscore(), CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 60); 
+    ctx.fillText('Level: ' + player.level, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 95);
 
     const btnX = CANVAS_WIDTH / 2 - 120;
     const btnY = CANVAS_HEIGHT / 2 + 110;
@@ -3245,10 +3285,6 @@ function drawGameOver() {
     ctx.fillStyle = '#ffffff';
     ctx.font = '20px Arial';
     ctx.fillText('Zurück zum Hauptmenü', CANVAS_WIDTH / 2, btnY + btnH / 2 + 7);
-
-    ctx.fillStyle = '#888888';
-    ctx.font = '18px Arial';
-    ctx.fillText('TRY AGAIN?', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 100);
 
     ctx.textAlign = 'left';
 }
