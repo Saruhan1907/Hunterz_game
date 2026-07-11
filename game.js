@@ -733,11 +733,38 @@ function handleTouchStart(e) {
     }
 
     if (gameState === 'OPTIONS') {
+        const startY = CANVAS_HEIGHT / 2 - 50;
+        const lineHeight = 35;
+        const leftX = CANVAS_WIDTH / 2 - 150;
+        const sliderX = leftX + 30;
+        const sliderY = startY + lineHeight * 2;
+        const sliderW = 300;
+        const sliderH = 10;
+        
+        const backBtnX = 20, backBtnY = 20, backBtnW = 160, backBtnH = 52;
+
         for (let i = 0; i < e.changedTouches.length; i++) {
             const touch = e.changedTouches[i];
             const tx = touch.clientX - rect.left;
             const ty = touch.clientY - rect.top;
-            if (isInsideOptionsBack(tx, ty)) { gameState = 'MAIN_MENU'; initMainMenuParticles(); return; }
+            
+            // Zurück-Button
+            if (tx >= backBtnX && tx <= backBtnX + backBtnW && ty >= backBtnY && ty <= backBtnY + backBtnH) { 
+                gameState = 'MAIN_MENU'; 
+                if (typeof initMainMenuParticles === 'function') initMainMenuParticles(); 
+                return; 
+            }
+
+            // Slider berührt (+/- 15 Pixel Puffer für Touch)
+            if (tx >= sliderX - 15 && tx <= sliderX + sliderW + 15 && ty >= sliderY - 15 && ty <= sliderY + sliderH + 15) {
+                isDraggingVolume = true;
+                
+                // NEU: Direkte Berechnung der Lautstärke ohne extra Funktion
+                let newVol = (tx - sliderX) / sliderW;
+                masterVolume = Math.max(0, Math.min(1, newVol)); // Wert zwischen 0.0 und 1.0 halten
+                
+                return;
+            }
         }
         return;
     }
@@ -786,12 +813,37 @@ function handleTouchStart(e) {
     }
 
     if (gameState === 'PAUSED') {
+        const cx = CANVAS_WIDTH / 2;
+        const bw = 260;
+        const bh = 50;
+        const bx = cx - bw / 2; // Start-X für die Buttons
+
+        const contY = CANVAS_HEIGHT / 2 - 20;
+        const optY = CANVAS_HEIGHT / 2 + 50;
+        const menuY = CANVAS_HEIGHT / 2 + 120;
+
         for (let i = 0; i < e.changedTouches.length; i++) {
             const touch = e.changedTouches[i];
             const tx = touch.clientX - rect.left;
             const ty = touch.clientY - rect.top;
-            if (isInsidePauseBtn(tx, ty, pauseContinueBtn)) { gameState = 'PLAYING'; return; }
-            if (isInsidePauseBtn(tx, ty, pauseMenuBtn)) { gameState = 'MAIN_MENU'; resetGameState(); initMainMenuParticles(); return; }
+
+            // 1. Weiter
+            if (tx >= bx && tx <= bx + bw && ty >= contY && ty <= contY + bh) { 
+                gameState = 'PLAYING'; 
+                return; 
+            }
+            // 2. Optionen
+            if (tx >= bx && tx <= bx + bw && ty >= optY && ty <= optY + bh) { 
+                gameState = 'OPTIONS'; 
+                return; 
+            }
+            // 3. Hauptmenü
+            if (tx >= bx && tx <= bx + bw && ty >= menuY && ty <= menuY + bh) { 
+                gameState = 'MAIN_MENU'; 
+                if (typeof resetGameState === 'function') resetGameState(); 
+                if (typeof initMainMenuParticles === 'function') initMainMenuParticles(); 
+                return; 
+            }
         }
         return;
     }
@@ -849,6 +901,22 @@ function handleTouchStart(e) {
 }
 
 function handleTouchMove(e) {
+    if (isDraggingVolume) {
+        e.preventDefault();
+        const rect = canvas.getBoundingClientRect();
+        const touch = e.touches[0];
+        const tx = touch.clientX - rect.left;
+        
+        const leftX = CANVAS_WIDTH / 2 - 150;
+        const sliderX = leftX + 30;
+        const sliderW = 300;
+
+        // NEU: Direkte Berechnung beim Ziehen
+        let newVol = (tx - sliderX) / sliderW;
+        masterVolume = Math.max(0, Math.min(1, newVol)); // Verhindert, dass der Balken über den Rand hinausgeht
+        
+        return; 
+    }
     e.preventDefault();
     const rect = canvas.getBoundingClientRect();
     for (let i = 0; i < e.changedTouches.length; i++) {
@@ -870,6 +938,7 @@ function handleTouchMove(e) {
 }
 
 function handleTouchEnd(e) {
+    isDraggingVolume = false;
     e.preventDefault();
     for (let i = 0; i < e.changedTouches.length; i++) {
         const touch = e.changedTouches[i];
@@ -3380,11 +3449,6 @@ function gameLoop() {
         ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
         
         ctx.save(); 
-        if (isMobile) {
-            ctx.translate(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2);
-            ctx.scale(0.75, 0.75);
-            ctx.translate(-CANVAS_WIDTH / 2, -CANVAS_HEIGHT / 2);
-        }
 
         drawGrid();
         drawXpCrystals();
