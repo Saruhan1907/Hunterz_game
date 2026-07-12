@@ -699,32 +699,86 @@ function handleTouchStart(e) {
     }
 
     if (gameState === 'CHAR_SELECT') {
+        const cx = CANVAS_WIDTH / 2;
+        const cy = CANVAS_HEIGHT / 2 - 40;
+        const cardWidth = Math.min(320, CANVAS_WIDTH * 0.6);
+        const cardHeight = Math.min(440, CANVAS_HEIGHT * 0.55);
+        
+        // Exakt dieselben Werte wie beim Zeichnen und Klicken
+        const arrowDist = cardWidth / 2 + 60;
+        const btnW = 240; const btnH = 50;
+        const btnY = cy + cardHeight / 2 + 50;
+        const backY = btnY + btnH + 15;
+
         for (let i = 0; i < e.changedTouches.length; i++) {
             const touch = e.changedTouches[i];
             const tx = touch.clientX - rect.left;
             const ty = touch.clientY - rect.top;
-            if (isInsideCharacterCard(tx, ty, 0)) { selectCharacter(0); return; }
+
+            // 1. Linker Pfeil (Touch-Radius 40px)
+            if (Math.hypot(tx - (cx - arrowDist), ty - cy) < 40) {
+                playClickSound();
+                window.currentCharViewIndex = (window.currentCharViewIndex - 1 < 0) ? 2 : window.currentCharViewIndex - 1;
+                return;
+            } 
+            // 2. Rechter Pfeil (Touch-Radius 40px)
+            else if (Math.hypot(tx - (cx + arrowDist), ty - cy) < 40) {
+                playClickSound();
+                window.currentCharViewIndex = (window.currentCharViewIndex + 1 > 2) ? 0 : window.currentCharViewIndex + 1;
+                return;
+            } 
+            // 3. Auswählen-Button
+            else if (tx >= cx - btnW/2 && tx <= cx + btnW/2 && ty >= btnY && ty <= btnY + btnH) {
+                if (window.currentCharViewIndex === 0) {
+                    playClickSound();
+                    gameState = 'WEAPON_SELECT';
+                }
+                return;
+            }
+            // 4. Zurück-Button
+            else if (tx >= cx - btnW/2 && tx <= cx + btnW/2 && ty >= backY && ty <= backY + btnH) {
+                playClickSound();
+                gameState = 'MAIN_MENU';
+                return;
+            }
         }
         return;
     }
 
     if (gameState === 'WEAPON_SELECT') {
+        const cx = CANVAS_WIDTH / 2;
+        const cy = CANVAS_HEIGHT / 2 - 40;
+        const cardWidth = Math.min(320, CANVAS_WIDTH * 0.6);
+        const cardHeight = Math.min(440, CANVAS_HEIGHT * 0.55);
+        const arrowDist = cardWidth / 2 + 60;
+        const btnW = 240; const btnH = 50;
+        const btnY = cy + cardHeight / 2 + 50;
+        const backY = btnY + btnH + 15;
+        const classes = [CLASSES.SNIPER, CLASSES.MACHINEGUN, CLASSES.SHOTGUN];
+
         for (let i = 0; i < e.changedTouches.length; i++) {
             const touch = e.changedTouches[i];
             const tx = touch.clientX - rect.left;
             const ty = touch.clientY - rect.top;
-            const classes = [CLASSES.SNIPER, CLASSES.MACHINEGUN, CLASSES.SHOTGUN];
-            const cardWidth = Math.min(220, (CANVAS_WIDTH - 80) / 3);
-            const cardHeight = Math.min(260, CANVAS_HEIGHT * 0.45);
-            const gap = Math.min(30, (CANVAS_WIDTH - 3 * cardWidth) / 4);
-            const totalWidth = classes.length * cardWidth + (classes.length - 1) * gap;
-            const startX = (CANVAS_WIDTH - totalWidth) / 2;
-            const cardY = Math.min(210, CANVAS_HEIGHT * 0.35);
 
-            for (let j = 0; j < classes.length; j++) {
-                const cx = startX + j * (cardWidth + gap);
-                if (tx >= cx && tx <= cx + cardWidth && ty >= cardY && ty <= cardY + cardHeight) {
-                    selectWeapon(classes[j]);
+            if (Math.hypot(tx - (cx - arrowDist), ty - cy) < 40) {
+                playClickSound();
+                currentWeaponViewIndex = (currentWeaponViewIndex - 1 < 0) ? 2 : currentWeaponViewIndex - 1;
+                return;
+            } 
+            else if (Math.hypot(tx - (cx + arrowDist), ty - cy) < 40) {
+                playClickSound();
+                currentWeaponViewIndex = (currentWeaponViewIndex + 1 > 2) ? 0 : currentWeaponViewIndex + 1;
+                return;
+            } 
+            else if (tx >= cx - btnW/2 && tx <= cx + btnW/2) {
+                if (ty >= btnY && ty <= btnY + btnH) {
+                    playClickSound();
+                    selectWeapon(classes[currentWeaponViewIndex]);
+                    return;
+                } else if (ty >= backY && ty <= backY + btnH) {
+                    playClickSound();
+                    gameState = 'CHAR_SELECT';
                     return;
                 }
             }
@@ -1171,31 +1225,55 @@ canvas.addEventListener('mousemove', (e) => {
         currentHover = hoveredButton;
 
     } else if (gameState === 'CHAR_SELECT') {
-        hoveredCharIndex = -1;
-        for (let i = 0; i < 3; i++) {
-            if (isInsideCharacterCard(mouseX, mouseY, i)) {
-                hoveredCharIndex = i;
-                currentHover = 'char_' + i;
-                break;
-            }
-        }
-    } else if (gameState === 'WEAPON_SELECT') {
-        hoveredWeaponIndex = -1;
-        const classes = [CLASSES.SNIPER, CLASSES.MACHINEGUN, CLASSES.SHOTGUN];
-        const cardWidth = Math.min(220, (CANVAS_WIDTH - 80) / 3);
-        const cardHeight = Math.min(260, CANVAS_HEIGHT * 0.45);
-        const gap = Math.min(30, (CANVAS_WIDTH - 3 * cardWidth) / 4);
-        const totalWidth = classes.length * cardWidth + (classes.length - 1) * gap;
-        const startX = (CANVAS_WIDTH - totalWidth) / 2;
-        const cardY = Math.min(210, CANVAS_HEIGHT * 0.35);
+        const cx = CANVAS_WIDTH / 2;
+        const cy = CANVAS_HEIGHT / 2 - 40;
+        const cardWidth = Math.min(320, CANVAS_WIDTH * 0.6);
+        const cardHeight = Math.min(440, CANVAS_HEIGHT * 0.55);
         
-        for (let i = 0; i < classes.length; i++) {
-            const cx = startX + i * (cardWidth + gap);
-            if (mouseX >= cx && mouseX <= cx + cardWidth && mouseY >= cardY && mouseY <= cardY + cardHeight) {
-                hoveredWeaponIndex = i;
-                currentHover = 'weapon_' + i;
-                break;
-            }
+        // Konstanten für Abstände (müssen mit drawCharSelect übereinstimmen)
+        const arrowDist = cardWidth / 2 + 60;
+        const btnW = 240; 
+        const btnH = 50;
+        const btnY = cy + cardHeight / 2 + 50;
+        const backY = btnY + btnH + 15;
+
+        // Reset Hover
+        currentHover = null;
+
+        // Pfeile prüfen (40px Radius für Touch-Freundlichkeit)
+        if (Math.hypot(mouseX - (cx - arrowDist), mouseY - cy) < 40) {
+            currentHover = 'char_left';
+        } else if (Math.hypot(mouseX - (cx + arrowDist), mouseY - cy) < 40) {
+            currentHover = 'char_right';
+        } 
+    // Buttons prüfen
+    else if (mouseX >= cx - btnW/2 && mouseX <= cx + btnW/2) {
+        if (mouseY >= btnY && mouseY <= btnY + btnH) {
+            currentHover = 'char_confirm';
+        } else if (mouseY >= backY && mouseY <= backY + btnH) {
+            currentHover = 'char_back';
+        }
+    }
+
+    } else if (gameState === 'WEAPON_SELECT') {
+        const cx = CANVAS_WIDTH / 2;
+        const cy = CANVAS_HEIGHT / 2 - 40;
+        const cardWidth = Math.min(320, CANVAS_WIDTH * 0.6);
+        const cardHeight = Math.min(440, CANVAS_HEIGHT * 0.55);
+        const arrowDist = cardWidth / 2 + 60;
+        const btnW = 240; const btnH = 50;
+        const btnY = cy + cardHeight / 2 + 50;
+        const backY = btnY + btnH + 15;
+
+        currentHover = null; // Reset
+
+        // Pfeile
+        if (Math.hypot(mouseX - (cx - arrowDist), mouseY - cy) < 40) currentHover = 'wep_left';
+        else if (Math.hypot(mouseX - (cx + arrowDist), mouseY - cy) < 40) currentHover = 'wep_right';
+        // Buttons
+        else if (mouseX >= cx - btnW/2 && mouseX <= cx + btnW/2) {
+            if (mouseY >= btnY && mouseY <= btnY + btnH) currentHover = 'wep_confirm';
+            else if (mouseY >= backY && mouseY <= backY + btnH) currentHover = 'wep_back';
         }
     } else if (gameState === 'LEVEL_UP') {
         levelUpHoveredOption = -1;
@@ -1331,21 +1409,74 @@ canvas.addEventListener('click', (e) => {
     }
 
     if (gameState === 'CHAR_SELECT') {
-        if (isInsideCharacterCard(clickX, clickY, 0)) { playClickSound(); selectCharacter(0); }
-        return;
+        const cx = CANVAS_WIDTH / 2;
+        const cy = CANVAS_HEIGHT / 2 - 40;
+        const cardWidth = Math.min(320, CANVAS_WIDTH * 0.6);
+        const cardHeight = Math.min(440, CANVAS_HEIGHT * 0.55);
+        
+        // Exakt dieselben Werte wie beim Zeichnen!
+        const arrowDist = cardWidth / 2 + 60;
+        const btnW = 240; const btnH = 50;
+        const btnY = cy + cardHeight / 2 + 50;
+        const backY = btnY + btnH + 15;
+
+        // WICHTIG: Die Abfrage-Reihenfolge ist entscheidend
+        // Wir prüfen zuerst, ob einer der Pfeile getroffen wurde
+        if (Math.hypot(clickX - (cx - arrowDist), clickY - cy) < 40) {
+            playClickSound();
+            window.currentCharViewIndex = (window.currentCharViewIndex - 1 < 0) ? 2 : window.currentCharViewIndex - 1;
+        } 
+        else if (Math.hypot(clickX - (cx + arrowDist), clickY - cy) < 40) {
+            playClickSound();
+            window.currentCharViewIndex = (window.currentCharViewIndex + 1 > 2) ? 0 : window.currentCharViewIndex + 1;
+        } 
+        // Dann prüfen wir die Buttons
+        else if (clickX >= cx - btnW/2 && clickX <= cx + btnW/2 && clickY >= btnY && clickY <= btnY + btnH) {
+            // Auswählen
+            if (window.currentCharViewIndex === 0) {
+                playClickSound();
+                gameState = 'WEAPON_SELECT';
+            }
+        }
+        else if (clickX >= cx - btnW/2 && clickX <= cx + btnW/2 && clickY >= backY && clickY <= backY + btnH) {
+            // Zurück
+            playClickSound();
+            gameState = 'MAIN_MENU';
+        }
+        
+        // Return verhindert, dass der Klick "durchfällt" in andere Menüs
+        return; 
     }
 
     if (gameState === 'WEAPON_SELECT') {
+        const cx = CANVAS_WIDTH / 2;
+        const cy = CANVAS_HEIGHT / 2 - 40;
+        const cardWidth = Math.min(320, CANVAS_WIDTH * 0.6);
+        const cardHeight = Math.min(440, CANVAS_HEIGHT * 0.55);
+        const arrowDist = cardWidth / 2 + 60;
+        const btnW = 240; const btnH = 50;
+        const btnY = cy + cardHeight / 2 + 50;
+        const backY = btnY + btnH + 15;
         const classes = [CLASSES.SNIPER, CLASSES.MACHINEGUN, CLASSES.SHOTGUN];
-        const cardW = Math.min(220, (CANVAS_WIDTH - 80) / 3), cardH = Math.min(260, CANVAS_HEIGHT * 0.45);
-        const gap = Math.min(30, (CANVAS_WIDTH - 3 * cardW) / 4);
-        const startX = (CANVAS_WIDTH - (classes.length * cardW + (classes.length - 1) * gap)) / 2;
-        const cardY = Math.min(210, CANVAS_HEIGHT * 0.35);
 
-        for (let i = 0; i < classes.length; i++) {
-            const cx = startX + i * (cardW + gap);
-            if (clickX >= cx && clickX <= cx + cardW && clickY >= cardY && clickY <= cardY + cardH) {
-                playClickSound(); selectWeapon(classes[i]); return;
+        // Pfeile
+        if (Math.hypot(clickX - (cx - arrowDist), clickY - cy) < 40) {
+            playClickSound();
+            currentWeaponViewIndex = (currentWeaponViewIndex - 1 < 0) ? 2 : currentWeaponViewIndex - 1;
+        } 
+        else if (Math.hypot(clickX - (cx + arrowDist), clickY - cy) < 40) {
+            playClickSound();
+            currentWeaponViewIndex = (currentWeaponViewIndex + 1 > 2) ? 0 : currentWeaponViewIndex + 1;
+        } 
+        // Buttons
+        else if (clickX >= cx - btnW/2 && clickX <= cx + btnW/2) {
+            if (clickY >= btnY && clickY <= btnY + btnH) {
+                playClickSound();
+                selectWeapon(classes[currentWeaponViewIndex]);
+                // Hier folgt ggf. gameState = 'PLAYING';
+            } else if (clickY >= backY && clickY <= backY + btnH) {
+                playClickSound();
+                gameState = 'CHAR_SELECT'; // Zurück zur Charakterauswahl
             }
         }
         return;
@@ -1854,7 +1985,7 @@ function update() {
         gridOffsetX = cameraX;
         gridOffsetY = cameraY;
 
-        if (!minibossSpawned && gameTime >= 10) {
+        if (!minibossSpawned && gameTime >= 60) {
             spawnMiniboss();
         }
 
@@ -2108,11 +2239,16 @@ function update() {
 }
 
 // ===== ZEICHNEN =====
+// ===== MINIMAP =====
 function drawMinimap() {
     const mapSize = 187.5; // Größe der Minimap in Pixeln
-    const margin = 20;   // Abstand vom rechten unteren Rand
-    const mapX = CANVAS_WIDTH - mapSize - margin;
-    const mapY = CANVAS_HEIGHT - mapSize - margin;
+    const margin = 20;     // Abstand vom rechten Rand
+    
+    // Y-Abstand von ganz oben. Mach diese Zahl größer, um die Map weiter nach unten zu schieben!
+    const topOffset = 90;  
+
+    const mapX = CANVAS_WIDTH - mapSize - margin; // Rechtsbündig
+    const mapY = topOffset;                       // Obenbündig (mit deinem Offset)
 
     // Hintergrund der Minimap
     ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
@@ -2131,7 +2267,7 @@ function drawMinimap() {
         if (!ch.opened) {
             const chX = mapX + (ch.x * scaleX);
             const chY = mapY + (ch.y * scaleY);
-            // Größe von 3 auf 4 erhöht (wegen der 25% größeren Map)
+            // Größe von 3 auf 4 erhöht
             ctx.fillRect(chX - 1.5, chY - 1.5, 4, 4); 
         }
     }
@@ -2566,261 +2702,271 @@ function drawMainMenu() {
     ctx.textAlign = 'left';
 }
 
-// ===== CHARAKTER AUSWAHL =====
+// Globale Variable für das Karussell (falls noch nicht vorhanden)
+if (typeof currentCharViewIndex === 'undefined') window.currentCharViewIndex = 0;
+let currentWeaponViewIndex = 0; // 0 = Sniper, 1 = Machinegun, 2 = Shotgun
+// ===== CHARAKTER AUSWAHL (KARUSSELL) =====
 function drawCharSelect() {
     ctx.fillStyle = '#0a0a1a';
     ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
     // Hintergrund-Partikel
     for (const p of menuParticles) {
-        p.x += p.vx;
-        p.y += p.vy;
-        if (p.x < 0) p.x = CANVAS_WIDTH;
-        if (p.x > CANVAS_WIDTH) p.x = 0;
-        if (p.y < 0) p.y = CANVAS_HEIGHT;
-        if (p.y > CANVAS_HEIGHT) p.y = 0;
+        p.x += p.vx; p.y += p.vy;
+        if (p.x < 0) p.x = CANVAS_WIDTH; if (p.x > CANVAS_WIDTH) p.x = 0;
+        if (p.y < 0) p.y = CANVAS_HEIGHT; if (p.y > CANVAS_HEIGHT) p.y = 0;
     }
     for (const p of menuParticles) {
         ctx.save();
-        ctx.globalAlpha = p.alpha;
-        ctx.fillStyle = p.color;
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.globalAlpha = 1;
-        ctx.restore();
+        ctx.globalAlpha = p.alpha; ctx.fillStyle = p.color;
+        ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        ctx.fill(); ctx.restore();
     }
 
     ctx.textAlign = 'center';
+    const hoverCheck = typeof lastHoveredElement !== 'undefined' ? lastHoveredElement : null;
+    const cx = CANVAS_WIDTH / 2;
+    const cy = CANVAS_HEIGHT / 2 - 40;
 
     // Titel
-    ctx.shadowBlur = 30;
-    ctx.shadowColor = '#00ffcc';
+    ctx.shadowBlur = 30; ctx.shadowColor = '#00ffcc';
     ctx.fillStyle = '#00ffcc';
     const titleSize = Math.min(56, CANVAS_WIDTH * 0.08);
     ctx.font = `bold ${titleSize}px Arial`;
-    ctx.fillText('Wähle deinen Charakter', CANVAS_WIDTH / 2, titleSize + 50);
+    ctx.fillText('Wähle deinen Charakter', cx, titleSize + 30);
     ctx.shadowBlur = 0;
 
-    // Beschreibender Text oben am Bildschirmrand
-    const char = CHARACTERS.WEAPON_SPECIALIST;
-    ctx.fillStyle = '#ffffff';
-    ctx.font = '20px Arial';
-    ctx.fillText(char.description, CANVAS_WIDTH / 2, 130);
+    // --- ZENTRALE KARTE ---
+    const cardWidth = Math.min(320, CANVAS_WIDTH * 0.6);
+    const cardHeight = Math.min(440, CANVAS_HEIGHT * 0.55);
+    const drawX = cx - cardWidth / 2;
+    const drawY = cy - cardHeight / 2;
+    const fs = Math.min(26, cardWidth * 0.085);
 
-    // Charakter-Karten
-    const cardWidth = Math.min(280, CANVAS_WIDTH * 0.35);
-    const cardHeight = Math.min(380, CANVAS_HEIGHT * 0.5);
-    const gap = Math.min(40, (CANVAS_WIDTH - 3 * cardWidth) / 4);
-    const totalWidth = 3 * cardWidth + 2 * gap;
-    const startX = (CANVAS_WIDTH - totalWidth) / 2;
-    const cardY = CANVAS_HEIGHT * 0.3;
+    if (currentCharViewIndex === 0) {
+        const char = CHARACTERS.WEAPON_SPECIALIST;
+        ctx.fillStyle = 'rgba(20, 20, 50, 0.9)';
+        ctx.strokeStyle = char.color; 
+        ctx.lineWidth = 3;
+        ctx.shadowBlur = 20; 
+        ctx.shadowColor = char.color;
+        roundRect(ctx, drawX, drawY, cardWidth, cardHeight, 16);
+        ctx.fill(); 
+        ctx.stroke(); 
+        ctx.shadowBlur = 0;
 
-    // Verfügbarer Charakter (Waffenspezialist)
-    const cx1 = startX;
-    const hoverScale = (hoveredCharIndex === 0) ? 1.05 : 1;
-    const drawW = cardWidth * hoverScale;
-    const drawH = cardHeight * hoverScale;
-    const drawX = cx1 - (drawW - cardWidth) / 2;
-    const drawY = cardY - (drawH - cardHeight) / 2;
-    
-    // Karten-Hintergrund (mit Bild falls vorhanden, sonst Fallback)
-    ctx.fillStyle = 'rgba(20, 20, 50, 0.9)';
-    ctx.strokeStyle = char.color;
-    ctx.lineWidth = 3;
-    ctx.shadowBlur = 20;
-    ctx.shadowColor = char.color;
-    roundRect(ctx, drawX, drawY, drawW, drawH, 16);
-    ctx.fill();
-    ctx.stroke();
-    ctx.shadowBlur = 0;
-
-    // Charakter-Bild (gestretcht auf volle Kartengröße, mit Clip-Maske & Fallback)
-    if (charImage_waffenspezialist.complete && charImage_waffenspezialist.naturalWidth > 0) {
-        ctx.save();
-        // Abgerundeten Kartenpfad als Clip-Maske verwenden
-        roundRect(ctx, drawX, drawY, drawW, drawH, 16);
-        ctx.clip();
-        ctx.drawImage(charImage_waffenspezialist, drawX, drawY, drawW, drawH);
-        ctx.restore();
-    }
-
-    // Dunkler Verlauf am unteren Rand für bessere Textlesbarkeit
-    const textGrad = ctx.createLinearGradient(0, drawY + drawH * 0.6, 0, drawY + drawH);
-    textGrad.addColorStop(0, 'rgba(10, 10, 30, 0)');
-    textGrad.addColorStop(1, 'rgba(10, 10, 30, 0.85)');
-    ctx.fillStyle = textGrad;
-    ctx.save();
-    roundRect(ctx, drawX, drawY, drawW, drawH, 16);
-    ctx.clip();
-    ctx.fillRect(drawX, drawY + drawH * 0.6, drawW, drawH * 0.4);
-    ctx.restore();
-
-    // Text im unteren Drittel der Karte mit Padding & Schatten
-    const fs = Math.min(24, cardWidth * 0.085);
-
-    ctx.textAlign = 'center';
-    ctx.shadowColor = '#000000';
-    ctx.shadowBlur = 4;
-
-    // Charakter-Name
-    ctx.fillStyle = char.color;
-    ctx.font = `bold ${fs}px Arial`;
-    ctx.fillText(char.name, drawX + drawW / 2, drawY + drawH * 0.75);
-
-    // Beschreibung direkt unter dem Namen (kompakter Block)
-    ctx.fillStyle = '#ffffff';
-    ctx.font = `${fs * 0.6}px Arial`;
-    ctx.fillText(char.description, drawX + drawW / 2, drawY + drawH * 0.75 + fs * 0.65);
-
-    ctx.shadowBlur = 0;
-
-    // Platzhalter 1 und 2 (ausgegraut)
-    for (let i = 1; i <= 2; i++) {
-        const cx = startX + i * (cardWidth + gap);
-        const phoverScale = (hoveredCharIndex === i) ? 1.05 : 1;
-        const pdrawW = cardWidth * phoverScale;
-        const pdrawH = cardHeight * phoverScale;
-        const pdrawX = cx - (pdrawW - cardWidth) / 2;
-        const pdrawY = cardY - (pdrawH - cardHeight) / 2;
+        // Bild zeichnen
+        if (typeof charImage_waffenspezialist !== 'undefined' && charImage_waffenspezialist.complete) {
+            ctx.save();
+            roundRect(ctx, drawX, drawY, cardWidth, cardHeight, 16);
+            ctx.clip();
+            ctx.drawImage(charImage_waffenspezialist, drawX, drawY, cardWidth, cardHeight);
+            ctx.restore();
+        }
         
+        // --- NEUES, SCHMALES OVERLAY (MIT CLIP) ---
+        const overlayH = 100;
+        const overlayY = drawY + cardHeight - overlayH;
+        
+        ctx.save(); // Kontext speichern, damit das Clipping nur hier wirkt
+        
+        // Clipping-Pfad definieren: Die Form der Hauptkarte
+        roundRect(ctx, drawX, drawY, cardWidth, cardHeight, 16);
+        ctx.clip(); // Alles, was jetzt gezeichnet wird, bleibt innerhalb der abgerundeten Ecken
+        
+        // Jetzt das Overlay zeichnen
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.65)'; 
+        ctx.fillRect(drawX, overlayY, cardWidth, overlayH);
+        
+        ctx.restore(); // Clipping wieder aufheben
+        
+        // Text-Positionierung (jetzt wieder außerhalb des Clips)
+        const textBaseY = overlayY + 35; 
+        
+        ctx.fillStyle = char.color;
+        ctx.font = `bold ${fs}px Arial`;
+        ctx.fillText(char.name, cx, textBaseY);
+        
+        ctx.fillStyle = '#ffffff';
+        ctx.font = `${fs * 0.7}px Arial`; 
+        ctx.fillText(char.description, cx, textBaseY + fs + 10);
+
+    } else {
+        // Fallback für gesperrte Charaktere
         ctx.fillStyle = 'rgba(40, 40, 60, 0.7)';
         ctx.strokeStyle = 'rgba(100, 100, 100, 0.4)';
-        ctx.lineWidth = 2;
-        roundRect(ctx, pdrawX, pdrawY, pdrawW, pdrawH, 16);
-        ctx.fill();
+        roundRect(ctx, drawX, drawY, cardWidth, cardHeight, 16);
+        ctx.fill(); 
         ctx.stroke();
-
-        ctx.fillStyle = 'rgba(150, 150, 150, 0.6)';
-        ctx.font = `${fs * 0.75}px Arial`;
-        ctx.fillText('Demnächst verfügbar...', pdrawX + pdrawW/2, pdrawY + pdrawH/2);
+        ctx.fillStyle = '#ffffff';
+        ctx.fillText('Geheim...', cx, cy);
     }
 
-    ctx.fillStyle = '#666666';
-    ctx.font = '16px Arial';
-    ctx.fillText('ESC = Zurück | Klicke auf einen Charakter', CANVAS_WIDTH / 2, CANVAS_HEIGHT - 30);
+    // --- PFEILE (VEKTOR) ---
+    const arrowDist = cardWidth / 2 + 60;
+    const arrowSize = 25;
+    
+    // Links
+    ctx.beginPath();
+    ctx.fillStyle = (hoverCheck === 'char_left') ? '#00ffcc' : '#aaaaaa';
+    ctx.moveTo(cx - arrowDist + arrowSize, cy - arrowSize);
+    ctx.lineTo(cx - arrowDist - arrowSize, cy);
+    ctx.lineTo(cx - arrowDist + arrowSize, cy + arrowSize);
+    ctx.fill();
 
-    ctx.textAlign = 'left';
+    // Rechts
+    ctx.beginPath();
+    ctx.fillStyle = (hoverCheck === 'char_right') ? '#00ffcc' : '#aaaaaa';
+    ctx.moveTo(cx + arrowDist - arrowSize, cy - arrowSize);
+    ctx.lineTo(cx + arrowDist + arrowSize, cy);
+    ctx.lineTo(cx + arrowDist - arrowSize, cy + arrowSize);
+    ctx.fill();
+
+    // --- BUTTONS ---
+    const btnW = 240; const btnH = 50;
+    const btnY = cy + cardHeight / 2 + 50;
+    const backY = btnY + btnH + 15;
+
+    // 1. Auswählen-Button (Grün)
+    const isConfHover = (hoverCheck === 'char_confirm');
+    ctx.fillStyle = isConfHover ? 'rgba(0, 255, 204, 0.4)' : 'rgba(0, 200, 150, 0.3)';
+    ctx.strokeStyle = '#00cc99'; // Randfarbe
+    roundRect(ctx, cx - btnW/2, btnY, btnW, btnH, 10);
+    ctx.fill(); ctx.stroke();
+    
+    // Text: Farbe angepasst an Rand
+    ctx.fillStyle = '#00cc99'; 
+    ctx.font = 'bold 20px Arial';
+    ctx.fillText('Auswählen', cx, btnY + 33);
+
+    // 2. Zurück-Button (Rot)
+    const isBackHover = (hoverCheck === 'char_back');
+    ctx.fillStyle = isBackHover ? 'rgba(255, 100, 100, 0.4)' : 'rgba(200, 50, 50, 0.3)';
+    ctx.strokeStyle = '#ff6666'; // Randfarbe
+    roundRect(ctx, cx - btnW/2, backY, btnW, btnH, 10);
+    ctx.fill(); ctx.stroke();
+    
+    // Text: Farbe angepasst an Rand
+    ctx.fillStyle = '#ff6666';
+    ctx.fillText('Zurück', cx, backY + 33);
 }
 
-// ===== WAFFEN AUSWAHL =====
+// ===== WAFFEN AUSWAHL (KARUSSELL) =====
 function drawWeaponSelect() {
     ctx.fillStyle = '#0a0a1a';
     ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
+    // Hintergrund-Partikel
     for (const p of menuParticles) {
-        p.x += p.vx;
-        p.y += p.vy;
-        if (p.x < 0) p.x = CANVAS_WIDTH;
-        if (p.x > CANVAS_WIDTH) p.x = 0;
-        if (p.y < 0) p.y = CANVAS_HEIGHT;
-        if (p.y > CANVAS_HEIGHT) p.y = 0;
+        p.x += p.vx; p.y += p.vy;
+        if (p.x < 0) p.x = CANVAS_WIDTH; if (p.x > CANVAS_WIDTH) p.x = 0;
+        if (p.y < 0) p.y = CANVAS_HEIGHT; if (p.y > CANVAS_HEIGHT) p.y = 0;
     }
     for (const p of menuParticles) {
         ctx.save();
-        ctx.globalAlpha = p.alpha;
-        ctx.fillStyle = p.color;
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.globalAlpha = 1;
-        ctx.restore();
+        ctx.globalAlpha = p.alpha; ctx.fillStyle = p.color;
+        ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        ctx.fill(); ctx.restore();
     }
 
     ctx.textAlign = 'center';
+    const hoverCheck = typeof lastHoveredElement !== 'undefined' ? lastHoveredElement : null;
+    const cx = CANVAS_WIDTH / 2;
+    const cy = CANVAS_HEIGHT / 2 - 40;
 
     // Titel
-    ctx.shadowBlur = 30;
-    ctx.shadowColor = '#00ffcc';
+    ctx.shadowBlur = 30; ctx.shadowColor = '#00ffcc';
     ctx.fillStyle = '#00ffcc';
     const titleSize = Math.min(56, CANVAS_WIDTH * 0.08);
     ctx.font = `bold ${titleSize}px Arial`;
-    ctx.fillText('Wähle deine Waffe', CANVAS_WIDTH / 2, titleSize + 50);
+    ctx.fillText('Wähle deine Waffe', cx, titleSize + 30);
     ctx.shadowBlur = 0;
 
-    if (selectedCharacter) {
-        ctx.fillStyle = '#ffffff';
-        ctx.font = '20px Arial';
-        ctx.fillText('Charakter: ' + selectedCharacter.name, CANVAS_WIDTH / 2, titleSize + 90);
-    }
+    // --- ZENTRALE KARTE ---
+    const cardWidth = Math.min(320, CANVAS_WIDTH * 0.6);
+    const cardHeight = Math.min(440, CANVAS_HEIGHT * 0.55);
+    const drawX = cx - cardWidth / 2;
+    const drawY = cy - cardHeight / 2;
+    const fs = Math.min(26, cardWidth * 0.085);
 
-    // Waffen-Karten
+    // Waffen Daten
     const classes = [CLASSES.SNIPER, CLASSES.MACHINEGUN, CLASSES.SHOTGUN];
-    const cardWidth = Math.min(220, (CANVAS_WIDTH - 80) / 3);
-    const cardHeight = Math.min(260, CANVAS_HEIGHT * 0.45);
-    const gap = Math.min(30, (CANVAS_WIDTH - 3 * cardWidth) / 4);
-    const totalWidth = classes.length * cardWidth + (classes.length - 1) * gap;
-    const startX = (CANVAS_WIDTH - totalWidth) / 2;
-    const cardY = Math.min(210, CANVAS_HEIGHT * 0.35);
+    const c = classes[currentWeaponViewIndex];
 
-    for (let i = 0; i < classes.length; i++) {
-        const c = classes[i];
-        const cx = startX + i * (cardWidth + gap);
-        
-        // Hover-Effekt: 5% größer
-        const hoverScale = (hoveredWeaponIndex === i) ? 1.05 : 1;
-        const drawW = cardWidth * hoverScale;
-        const drawH = cardHeight * hoverScale;
-        const drawX = cx - (drawW - cardWidth) / 2;
-        const drawY = cardY - (drawH - cardHeight) / 2;
+    // Karte zeichnen
+    ctx.fillStyle = 'rgba(20, 20, 50, 0.9)';
+    ctx.strokeStyle = c.color;
+    ctx.lineWidth = 3;
+    ctx.shadowBlur = 20; ctx.shadowColor = c.color;
+    roundRect(ctx, drawX, drawY, cardWidth, cardHeight, 16);
+    ctx.fill(); ctx.stroke(); ctx.shadowBlur = 0;
 
-        ctx.fillStyle = 'rgba(20, 20, 50, 0.8)';
-        ctx.strokeStyle = c.color;
-        ctx.lineWidth = 2;
-        ctx.shadowBlur = 15;
-        ctx.shadowColor = c.color;
+    // Inhalt (Name & Stats)
+    ctx.fillStyle = c.color;
+    ctx.font = `bold ${fs}px Arial`;
+    ctx.fillText(c.name, cx, drawY + 60);
 
-        const r = 12;
-        ctx.beginPath();
-        ctx.moveTo(drawX + r, drawY);
-        ctx.lineTo(drawX + drawW - r, drawY);
-        ctx.quadraticCurveTo(drawX + drawW, drawY, drawX + drawW, drawY + r);
-        ctx.lineTo(drawX + drawW, drawY + drawH - r);
-        ctx.quadraticCurveTo(drawX + drawW, drawY + drawH, drawX + drawW - r, drawY + drawH);
-        ctx.lineTo(drawX + r, drawY + drawH);
-        ctx.quadraticCurveTo(drawX, drawY + drawH, drawX, drawY + drawH - r);
-        ctx.lineTo(drawX, drawY + r);
-        ctx.lineTo(drawX, drawY + r);
-        ctx.quadraticCurveTo(drawX, drawY, drawX + r, drawY);
-        ctx.closePath();
-        ctx.fill();
-        ctx.stroke();
-        ctx.shadowBlur = 0;
+    ctx.fillStyle = '#ffffff';
+    ctx.font = `${fs * 0.6}px Arial`;
+    ctx.fillText(c.description, cx, drawY + 100);
 
-        const fs = Math.min(24, cardWidth * 0.11);
-        ctx.fillStyle = c.color;
-        ctx.font = `bold ${fs}px Arial`;
-        
-        // Name ohne [ID]
-        ctx.fillText(c.name, drawX + drawW / 2, drawY + fs + 10);
+    // Trennlinie
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+    ctx.beginPath();
+    ctx.moveTo(drawX + 40, drawY + 130);
+    ctx.lineTo(drawX + cardWidth - 40, drawY + 130);
+    ctx.stroke();
 
-        ctx.fillStyle = '#aaaaaa';
-        ctx.font = `${fs * 0.6}px Arial`;
-        ctx.fillText(c.description, drawX + drawW / 2, drawY + fs * 2.8 + 20);
-
-        ctx.fillStyle = c.color;
-        ctx.font = `${fs * 0.55}px Arial`;
-        ctx.fillText(c.detail, drawX + drawW / 2, drawY + fs * 3.5 + 25);
-
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
-        ctx.beginPath();
-        ctx.moveTo(drawX + 20, drawY + fs * 4.2 + 25);
-        ctx.lineTo(drawX + drawW - 20, drawY + fs * 4.2 + 25);
-        ctx.stroke();
-
-        ctx.fillStyle = '#cccccc';
-        ctx.font = `${fs * 0.5}px Arial`;
-        const stats = getClassStats(c);
-        for (let s = 0; s < stats.length; s++) {
-            ctx.fillText(stats[s], drawX + drawW / 2, drawY + fs * 5 + 30 + s * fs * 0.9);
-        }
+    // Stats
+    ctx.fillStyle = '#cccccc';
+    const stats = getClassStats(c);
+    for (let s = 0; s < stats.length; s++) {
+        ctx.fillText(stats[s], cx, drawY + 170 + (s * 30));
     }
 
-    ctx.fillStyle = '#666666';
-    ctx.font = '14px Arial';
-    ctx.fillText('ESC = Zurück | Wähle eine Waffe zum Starten', CANVAS_WIDTH / 2, CANVAS_HEIGHT - 30);
+    // --- PFEILE (VEKTOR) ---
+    const arrowDist = cardWidth / 2 + 60;
+    const arrowSize = 25;
+    
+    // Links
+    ctx.beginPath();
+    ctx.fillStyle = (hoverCheck === 'wep_left') ? '#00ffcc' : '#aaaaaa';
+    ctx.moveTo(cx - arrowDist + arrowSize, cy - arrowSize);
+    ctx.lineTo(cx - arrowDist - arrowSize, cy);
+    ctx.lineTo(cx - arrowDist + arrowSize, cy + arrowSize);
+    ctx.fill();
 
-    ctx.textAlign = 'left';
+    // Rechts
+    ctx.beginPath();
+    ctx.fillStyle = (hoverCheck === 'wep_right') ? '#00ffcc' : '#aaaaaa';
+    ctx.moveTo(cx + arrowDist - arrowSize, cy - arrowSize);
+    ctx.lineTo(cx + arrowDist + arrowSize, cy);
+    ctx.lineTo(cx + arrowDist - arrowSize, cy + arrowSize);
+    ctx.fill();
+
+    // --- BUTTONS ---
+    const btnW = 240; const btnH = 50;
+    const btnY = cy + cardHeight / 2 + 50;
+    const backY = btnY + btnH + 15;
+
+    // 1. Auswählen-Button (Grün)
+    const isConfHover = (hoverCheck === 'wep_confirm');
+    ctx.fillStyle = isConfHover ? 'rgba(0, 255, 204, 0.4)' : 'rgba(0, 200, 150, 0.3)';
+    ctx.strokeStyle = '#00cc99'; // Randfarbe
+    roundRect(ctx, cx - btnW/2, btnY, btnW, btnH, 10);
+    ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#00cc99'; 
+    ctx.font = 'bold 20px Arial';
+    ctx.fillText('Auswählen', cx, btnY + 33);
+
+    // 2. Zurück-Button (Rot)
+    const isBackHover = (hoverCheck === 'wep_back');
+    ctx.fillStyle = isBackHover ? 'rgba(255, 100, 100, 0.4)' : 'rgba(200, 50, 50, 0.3)';
+    ctx.strokeStyle = '#ff6666'; // Randfarbe
+    roundRect(ctx, cx - btnW/2, backY, btnW, btnH, 10);
+    ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#ff6666';
+    ctx.fillText('Zurück', cx, backY + 33);
 }
 
 // ===== MENÜ ZEICHNEN =====
