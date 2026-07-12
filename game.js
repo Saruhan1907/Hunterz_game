@@ -1127,34 +1127,49 @@ window.addEventListener('keyup', (e) => {
 });
 
 // ===== MAUS & TASTATUR EVENTS =====
-
 canvas.addEventListener('mousemove', (e) => {
+    // 1. Slider ziehen (priorisiert)
+    if (isDraggingVolume) {
+        const rect = canvas.getBoundingClientRect();
+        const mx = e.clientX - rect.left;
+        
+        const leftX = CANVAS_WIDTH / 2 - 150;
+        const sliderX = leftX + 30;
+        const sliderW = 300;
+
+        let newVol = (mx - sliderX) / sliderW;
+        masterVolume = Math.max(0, Math.min(1, newVol));
+        return; 
+    }
+
     const rect = canvas.getBoundingClientRect();
     mouseX = e.clientX - rect.left;
     mouseY = e.clientY - rect.top;
     
-    if (isMobile) return;
-
-    // Lautstärkeregler ziehen (Nutzt deine Variable isDraggingVolume)
-    if (isDraggingVolume && gameState === 'OPTIONS') {
-        const leftX = CANVAS_WIDTH / 2 - 150;
-        const sliderX = leftX + 30;
-        const sliderW = 300;
-        if (typeof updateVolume === 'function') {
-            updateVolume(mouseX, sliderX, sliderW);
-        } else if (typeof setMasterVolume === 'function') {
-            let pct = (mouseX - sliderX) / sliderW;
-            setMasterVolume(Math.max(0, Math.min(1, pct)));
-        }
-        return; // Kein Hover-Sound beim Ziehen
-    }
+    if (isMobile) return; // Auf Touchscreens gibt es keinen echten Hover
     
     let currentHover = null;
 
     if (gameState === 'MAIN_MENU') {
-        hoveredButton = isInsideStartBtn(mouseX, mouseY) ? 'start' : 
-                       isInsideOptionsBtn(mouseX, mouseY) ? 'options' : null;
+        // NEU: Exakte Koordinaten aus drawMainMenu (Mittelpunkt-Berechnung)
+        const cx = CANVAS_WIDTH / 2;
+        const btnWidth = 240;
+        const btnHeight = 60;
+        
+        const startBtnY = CANVAS_HEIGHT / 2 + 30;
+        const optBtnY = CANVAS_HEIGHT / 2 + 110;
+        
+        hoveredButton = null;
+        // Wir prüfen, ob die Maus im Bereich des jeweiligen Buttons liegt
+        if (mouseX >= cx - btnWidth/2 && mouseX <= cx + btnWidth/2) {
+            if (mouseY >= startBtnY - btnHeight/2 && mouseY <= startBtnY + btnHeight/2) {
+                hoveredButton = 'start';
+            } else if (mouseY >= optBtnY - btnHeight/2 && mouseY <= optBtnY + btnHeight/2) {
+                hoveredButton = 'options';
+            }
+        }
         currentHover = hoveredButton;
+
     } else if (gameState === 'CHAR_SELECT') {
         hoveredCharIndex = -1;
         for (let i = 0; i < 3; i++) {
@@ -1226,8 +1241,10 @@ canvas.addEventListener('mousemove', (e) => {
         }
     } else if (gameState === 'PAUSED') {
         const bw = 260, bh = 50, cx = CANVAS_WIDTH / 2;
+        const bx = cx - bw / 2; // Startpunkt X (oben links vom Button)
         const by1 = CANVAS_HEIGHT / 2 - 20, by2 = CANVAS_HEIGHT / 2 + 50, by3 = CANVAS_HEIGHT / 2 + 120;
-        if (mouseX >= cx - bw/2 && mouseX <= cx + bw/2) {
+        
+        if (mouseX >= bx && mouseX <= bx + bw) {
             if (mouseY >= by1 && mouseY <= by1 + bh) currentHover = 'pause_continue';
             else if (mouseY >= by2 && mouseY <= by2 + bh) currentHover = 'pause_options';
             else if (mouseY >= by3 && mouseY <= by3 + bh) currentHover = 'pause_menu';
@@ -1246,7 +1263,7 @@ canvas.addEventListener('mousemove', (e) => {
     }
 
     if (currentHover !== lastHoveredElement && currentHover !== null) {
-        playHoverSound();
+        if (typeof playHoverSound === 'function') playHoverSound();
     }
     lastHoveredElement = currentHover;
 });
@@ -1261,20 +1278,30 @@ canvas.addEventListener('mousedown', (e) => {
     const clickY = e.clientY - rect.top;
 
     if (gameState === 'OPTIONS') {
-        const startY = CANVAS_HEIGHT / 2 - 50, lineHeight = 35, leftX = CANVAS_WIDTH / 2 - 150;
-        const sliderX = leftX + 30, sliderY = startY + lineHeight * 2, sliderW = 300, sliderH = 10;
-        
-        // Nutzt die frisch berechneten clickX / clickY Werte
-        if (clickX >= sliderX - 15 && clickX <= sliderX + sliderW + 15 && clickY >= sliderY - 15 && clickY <= sliderY + sliderH + 15) {
+        const rect = canvas.getBoundingClientRect();
+        const mx = e.clientX - rect.left;
+        const my = e.clientY - rect.top;
+
+        const startY = CANVAS_HEIGHT / 2 - 50;
+        const lineHeight = 35;
+        const leftX = CANVAS_WIDTH / 2 - 150;
+        const sliderX = leftX + 30;
+        const sliderY = startY + lineHeight * 2;
+        const sliderW = 300;
+        const sliderH = 10;
+
+        // Prüfen, ob der Slider mit der Maus angeklickt wurde (+/- 15 Pixel Rand)
+        if (mx >= sliderX - 15 && mx <= sliderX + sliderW + 15 && my >= sliderY - 15 && my <= sliderY + sliderH + 15) {
             isDraggingVolume = true;
-            if (typeof updateVolume === 'function') {
-                updateVolume(clickX, sliderX, sliderW);
-            }
+            let newVol = (mx - sliderX) / sliderW;
+            masterVolume = Math.max(0, Math.min(1, newVol));
+            return;
         }
     }
 });
 
 canvas.addEventListener('mouseup', (e) => {
+    isDraggingVolume = false;
     if (e.button === 0) {
         mouseDown = false;
         isDraggingVolume = false;
@@ -2473,15 +2500,21 @@ function drawMainMenu() {
     const startBtnY = CANVAS_HEIGHT / 2 + 30;
     const btnWidth = 240;
     const btnHeight = 60;
-    const startHoverScale = (hoveredButton === 'start') ? 1.05 : 1;
+    
+    const isStartHovered = (hoveredButton === 'start');
+    const startHoverScale = isStartHovered ? 1.05 : 1;
     const startW = btnWidth * startHoverScale;
     const startH = btnHeight * startHoverScale;
     
-    ctx.fillStyle = 'rgba(0, 200, 150, 0.3)';
+    // Hintergrund wird beim Hover etwas heller
+    ctx.fillStyle = isStartHovered ? 'rgba(0, 255, 204, 0.4)' : 'rgba(0, 200, 150, 0.3)';
     ctx.strokeStyle = '#00cc99';
-    ctx.lineWidth = 3;
-    ctx.shadowBlur = 20;
+    ctx.lineWidth = isStartHovered ? 4 : 3; // Rand wird dicker
+    
+    // Leuchteffekt (Glow) anpassen
+    ctx.shadowBlur = isStartHovered ? 40 : 20; // Stärkeres Glühen beim Hover
     ctx.shadowColor = '#00ffcc';
+    
     roundRect(ctx, startBtnX - startW/2, startBtnY - startH/2, startW, startH, 15);
     ctx.fill();
     ctx.stroke();
@@ -2494,15 +2527,21 @@ function drawMainMenu() {
     // Options Button
     const optBtnX = CANVAS_WIDTH / 2;
     const optBtnY = CANVAS_HEIGHT / 2 + 110;
-    const optHoverScale = (hoveredButton === 'options') ? 1.05 : 1;
+    
+    const isOptHovered = (hoveredButton === 'options');
+    const optHoverScale = isOptHovered ? 1.05 : 1;
     const optW = btnWidth * optHoverScale;
     const optH = btnHeight * optHoverScale;
     
-    ctx.fillStyle = 'rgba(100, 100, 200, 0.3)';
+    // Hintergrund wird beim Hover etwas heller
+    ctx.fillStyle = isOptHovered ? 'rgba(130, 130, 255, 0.4)' : 'rgba(100, 100, 200, 0.3)';
     ctx.strokeStyle = '#6666cc';
-    ctx.lineWidth = 3;
-    ctx.shadowBlur = 20;
+    ctx.lineWidth = isOptHovered ? 4 : 3; // Rand wird dicker
+    
+    // Leuchteffekt (Glow) anpassen
+    ctx.shadowBlur = isOptHovered ? 40 : 20; // Stärkeres Glühen beim Hover
     ctx.shadowColor = '#6666cc';
+    
     roundRect(ctx, optBtnX - optW/2, optBtnY - optH/2, optW, optH, 15);
     ctx.fill();
     ctx.stroke();
@@ -2513,7 +2552,7 @@ function drawMainMenu() {
     ctx.fillText('Optionen', optBtnX, optBtnY + 10);
 
     ctx.textAlign = 'left';
-    // Im Menü-Zeichnen-Code:
+    
     // Highscore Anzeige mit coolem Neon-Gold-Effekt
     ctx.textAlign = 'center';
     ctx.font = 'bold 22px Arial';
@@ -3002,38 +3041,62 @@ function drawPauseMenu() {
     const bh = 50;
     const cx = CANVAS_WIDTH / 2;
 
+    // Sicherstellen, dass Hover-Variable existiert
+    const hoverCheck = typeof lastHoveredElement !== 'undefined' ? lastHoveredElement : null;
+
     // 1. Weiter Button
-    const by1 = CANVAS_HEIGHT / 2 - 20;
+    const isHover1 = (hoverCheck === 'pause_continue');
+    const scale1 = isHover1 ? 1.05 : 1;
+    const w1 = bw * scale1, h1 = bh * scale1;
+    const cy1 = (CANVAS_HEIGHT / 2 - 20) + (bh / 2); // Fester Mittelpunkt Y
+    
     ctx.fillStyle = 'rgba(0, 200, 150, 0.3)';
     ctx.strokeStyle = '#00cc99';
-    ctx.lineWidth = 2;
-    roundRect(ctx, cx - bw/2, by1, bw, bh, 10);
+    ctx.lineWidth = isHover1 ? 3 : 2;
+    if (isHover1) { ctx.shadowBlur = 20; ctx.shadowColor = '#00ffcc'; }
+    roundRect(ctx, cx - w1/2, cy1 - h1/2, w1, h1, 10);
     ctx.fill(); ctx.stroke();
+    ctx.shadowBlur = 0;
+    
     ctx.fillStyle = '#00cc99';
     ctx.font = 'bold 22px Arial';
-    ctx.fillText('Weiter (ESC)', cx, by1 + 32);
+    ctx.fillText('Weiter (ESC)', cx, cy1 + 7);
 
     // 2. Optionen Button
-    const by2 = CANVAS_HEIGHT / 2 + 50;
+    const isHover2 = (hoverCheck === 'pause_options');
+    const scale2 = isHover2 ? 1.05 : 1;
+    const w2 = bw * scale2, h2 = bh * scale2;
+    const cy2 = (CANVAS_HEIGHT / 2 + 50) + (bh / 2);
+    
     ctx.fillStyle = 'rgba(100, 100, 255, 0.3)';
     ctx.strokeStyle = '#6666ff';
-    ctx.lineWidth = 2;
-    roundRect(ctx, cx - bw/2, by2, bw, bh, 10);
+    ctx.lineWidth = isHover2 ? 3 : 2;
+    if (isHover2) { ctx.shadowBlur = 20; ctx.shadowColor = '#6666ff'; }
+    roundRect(ctx, cx - w2/2, cy2 - h2/2, w2, h2, 10);
     ctx.fill(); ctx.stroke();
+    ctx.shadowBlur = 0;
+    
     ctx.fillStyle = '#6666ff';
     ctx.font = 'bold 22px Arial';
-    ctx.fillText('Optionen', cx, by2 + 32);
+    ctx.fillText('Optionen', cx, cy2 + 7);
 
     // 3. Menü Button
-    const by3 = CANVAS_HEIGHT / 2 + 120;
+    const isHover3 = (hoverCheck === 'pause_menu');
+    const scale3 = isHover3 ? 1.05 : 1;
+    const w3 = bw * scale3, h3 = bh * scale3;
+    const cy3 = (CANVAS_HEIGHT / 2 + 120) + (bh / 2);
+    
     ctx.fillStyle = 'rgba(200, 50, 50, 0.3)';
     ctx.strokeStyle = '#cc4444';
-    ctx.lineWidth = 2;
-    roundRect(ctx, cx - bw/2, by3, bw, bh, 10);
+    ctx.lineWidth = isHover3 ? 3 : 2;
+    if (isHover3) { ctx.shadowBlur = 20; ctx.shadowColor = '#ff6666'; }
+    roundRect(ctx, cx - w3/2, cy3 - h3/2, w3, h3, 10);
     ctx.fill(); ctx.stroke();
+    ctx.shadowBlur = 0;
+    
     ctx.fillStyle = '#cc4444';
     ctx.font = 'bold 22px Arial';
-    ctx.fillText('Hauptmenü (M)', cx, by3 + 32);
+    ctx.fillText('Hauptmenü (M)', cx, cy3 + 7);
 
     ctx.textAlign = 'left';
 }
@@ -3213,32 +3276,36 @@ function drawOptionsMenu() {
 
     // Sicherheits-Fallback für die Lautstärke
     const vol = (typeof masterVolume === 'number' && !isNaN(masterVolume)) ? masterVolume : 0.5;
+    const hoverCheck = typeof lastHoveredElement !== 'undefined' ? lastHoveredElement : null;
 
-    // KORREKTUR: Prüfen, ob die Maus über dem Zurück-Button schwebt
-    const isBackHovered = (typeof lastHoveredElement !== 'undefined' && lastHoveredElement === 'options_back');
-
-    // Back button (oben links)
-    const backBtnX = 20, backBtnY = 20, backBtnW = 160, backBtnH = 52;
+    // --- ZURÜCK BUTTON (Mit Skalierung aus der Mitte) ---
+    const isBackHovered = (hoverCheck === 'options_back');
+    const backScale = isBackHovered ? 1.05 : 1;
     
-    // Hintergrund leuchtet bei Hover stärker auf
+    const baseBackW = 160, baseBackH = 52;
+    const backBtnW = baseBackW * backScale;
+    const backBtnH = baseBackH * backScale;
+    
+    // Fester Mittelpunkt des Buttons
+    const backCX = 20 + baseBackW / 2; // 100
+    const backCY = 20 + baseBackH / 2; // 46
+    
     ctx.fillStyle = isBackHovered ? 'rgba(0, 255, 204, 0.18)' : 'rgba(255, 255, 255, 0.08)';
-    roundRect(ctx, backBtnX, backBtnY, backBtnW, backBtnH, 14);
-    ctx.fill();
-    
-    // Rahmen wird bei Hover dicker und glüht
     ctx.strokeStyle = '#00ffcc';
     ctx.lineWidth = isBackHovered ? 3 : 2;
     if (isBackHovered) {
         ctx.shadowBlur = 20;
         ctx.shadowColor = '#00ffcc';
     }
+    roundRect(ctx, backCX - backBtnW/2, backCY - backBtnH/2, backBtnW, backBtnH, 14);
+    ctx.fill();
     ctx.stroke();
     ctx.shadowBlur = 0; // Schatten direkt wieder zurücksetzen!
 
     ctx.fillStyle = '#00ffcc';
     ctx.font = 'bold 18px Arial';
     ctx.textAlign = 'center';
-    ctx.fillText('Zurück', backBtnX + backBtnW / 2, backBtnY + backBtnH / 2 + 6);
+    ctx.fillText('Zurück', backCX, backCY + 6);
 
     // Titel
     ctx.shadowBlur = 30;
@@ -3281,14 +3348,17 @@ function drawOptionsMenu() {
     roundRect(ctx, sliderX, sliderY, sliderW * vol, sliderH, 5);
     ctx.fill();
 
-    // Slider-Knopf
+    // Slider-Knopf (mit leichtem Hover/Drag-Effekt)
+    const isSliderActive = (hoverCheck === 'options_slider') || (typeof isDraggingVolume !== 'undefined' && isDraggingVolume);
+    const knobRadius = isSliderActive ? 14 : 12; // Wird minimal größer beim Anfassen
+    
     ctx.beginPath();
-    ctx.arc(sliderX + sliderW * vol, sliderY + sliderH / 2, 12, 0, Math.PI * 2);
+    ctx.arc(sliderX + sliderW * vol, sliderY + sliderH / 2, knobRadius, 0, Math.PI * 2);
     ctx.fillStyle = '#ffffff';
     ctx.fill();
     ctx.strokeStyle = '#00ffcc';
     ctx.lineWidth = 2;
-    ctx.shadowBlur = 10;
+    ctx.shadowBlur = isSliderActive ? 20 : 10; // Glüht stärker beim Anfassen
     ctx.shadowColor = '#00ffcc';
     ctx.stroke();
     ctx.shadowBlur = 0;
