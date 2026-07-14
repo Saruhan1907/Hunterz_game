@@ -89,6 +89,19 @@
                 color: #000000 !important;
                 background-color: var(--accent) !important;
             }
+            /* Cool Hover-Effect für unsere Tech-Badges */
+            .badge {
+                transition: all 0.25s ease-in-out; /* Macht den Übergang super geschmeidig */
+                cursor: default; /* Zeigt den normalen Mauszeiger, da man sie nicht anklicken kann */
+            }
+
+            .badge:hover {
+                background-color: var(--accent) !important; /* Hintergrund wird Cyan */
+                color: #000000 !important;                  /* Text wird tiefschwarz */
+                border-color: var(--accent) !important;      /* Rahmen passt sich an */
+                box-shadow: 0 0 12px var(--accent);          /* Genialer Cyber-Neon-Glow! */
+                transform: translateY(-2px);                 /* Schwebt minimal nach oben */
+            }
     </style>
 
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-97T8B1FEPQ"></script>
@@ -156,7 +169,7 @@
             <div class="col-lg-10">
                 
                 <!-- Hero Section -->
-                <div class="p-5 mb-4 rounded-3" style="background: rgba(255,255,255,0.03);">
+                <div class="hover-card p-5 mb-4 rounded-3" style="background: rgba(255,255,255,0.03);">
                     <h1 class="display-5 fw-bold" data-i18n="hero-title">Willkommen in meiner Sandbox!</h1>
                     <p class="hero-text fs-4" data-i18n="hero-subtitle">Frisch ausgelernter Anwendungsentwickler – hier teste ich Tech-Stack & Ideen.</p>
                     <button class="btn btn-neon btn-lg" data-i18n="btn-test" onclick="alert('JavaScript aktiv!')">Interaktion Testen</button>
@@ -179,7 +192,7 @@
                 </div>
 
                 <!-- About Me Section -->
-                <div class="row my-5">
+                <div class="row mt-0 mb-4">
                     <div class="col-12">
                         <div class="p-5 rounded-3 hover-card" style="background: rgba(255,255,255,0.05);">
                             <h2 class="mb-4" style="color: #fff;" data-i18n="about-title">Über mich</h2>
@@ -222,18 +235,31 @@
                                     <span class="badge bg-dark border border-accent text-accent">Dokumentation</span>
                                 </div>
                             </div>
-                        </div> <!-- HIER SCHLIESST DIE ÜBER-MICH BOX -->
-                    </div> <!-- HIER SCHLIESST DIE COL-12 -->
-                </div> <!-- HIER SCHLIESST DIE ROW MY-5 -->
+                        </div>
+                    </div>
+                </div>
 
-                <!-- Teaser Section -->
-                <div class="text-center my-5 py-5 border-top border-dark">
-                    <h3 class="mb-3" data-i18n="pause-text">Lust auf eine Pause?</h3>
-                    <a href="game/index.html" class="btn btn-neon btn-lg px-5" data-i18n="btn-play">🎮 Hunterz Spielen</a>
+                <!-- Game Section Box -->
+                <div class="row mt-0 mb-4">
+                    <div class="col-12">
+                        <div class="hover-card p-5 rounded-3 text-center" style="background: rgba(255, 255, 255, 0.05);">
+                            <h2 class="text-white fw-bold mb-3" data-i18n="game-box-title">Lust auf eine Pause?</h2>
+                            
+                            <p class="text-accent fs-5 mb-4 mx-auto" style="max-width: 700px;" data-i18n="game-box-text">
+                                Dieses Spiel ist ein persönliches Hobbyprojekt von mir. Ich entwickle und verbessere es momentan nebenbei immer weiter, wann auch immer ich Zeit dafür finde.
+                            </p>
+                            
+                            <div>
+                                <a href="game/index.html" class="btn btn-neon px-4 py-2 fs-5" data-i18n="btn-play-game">
+                                    🎮 Hunterz Spielen
+                                </a>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Socials Section -->
-                <div class="text-center mt-3 mb-5">
+                <div class="text-center mt-0 mb-5">
                     <p class="socials-title mb-3" data-i18n="social-title">Folge mir auf meinen Kanälen:</p>
                     <div class="d-flex justify-content-center gap-4">
                         <a href="https://github.com/Saruhan1907" class="social-link" target="_blank"><i class="bi bi-github"></i></a>
