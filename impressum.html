@@ -111,7 +111,7 @@
             <!-- Rechte Seite: Dropdown + Sprache -->
             <div class="d-flex gap-3 align-items-center">
                 
-                <!-- Menü Dropdown -->
+                <!-- Menü Dropdown (Jetzt mit data-i18n für Übersetzungen) -->
                 <div class="dropdown">
                     <button class="btn btn-outline-light dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" data-i18n="menu-btn-text">
                         Menü
@@ -126,7 +126,7 @@
                     </ul>
                 </div>
 
-                <!-- Neue Sprachauswahl als schickes Dropdown -->
+                <!-- Neue Sprachauswahl als schickes Dropdown mit echten Flaggen -->
                 <div class="dropdown">
                     <button class="btn btn-outline-light dropdown-toggle d-flex align-items-center gap-2" type="button" id="languageBtn" data-bs-toggle="dropdown" aria-expanded="false">
                         <img src="https://flagcdn.com/w20/de.png" alt="DE" style="width: 20px; height: auto; border-radius: 2px;"> DE
@@ -149,91 +149,36 @@
                         </li>
                     </ul>
                 </div>
+            </div>
+        </div>
     </nav>
 
+    <!-- Hauptinhalt (Impressum-Inhalte unverändert) -->
     <main class="container py-5">
         <div class="row justify-content-center">
-            <div class="col-lg-10">
+            <div class="col-lg-8">
+                <h1 class="mb-4" data-i18n="impressum-title">Impressum</h1>
                 
-                <!-- Hero Section -->
-                <div class="p-5 mb-4 rounded-3" style="background: rgba(255,255,255,0.03);">
-                    <h1 class="display-5 fw-bold" data-i18n="hero-title">Willkommen in meiner Sandbox!</h1>
-                    <p class="hero-text fs-4" data-i18n="hero-subtitle">Frisch ausgelernter Anwendungsentwickler – hier teste ich Tech-Stack & Ideen.</p>
-                    <button class="btn btn-neon btn-lg" data-i18n="btn-test" onclick="alert('JavaScript aktiv!')">Interaktion Testen</button>
-                </div>
+                <h3 data-i18n="impressum-contact">Kontakt</h3> <!-- Weiß -->
+                <p class="text-accent"> <!-- Accent -->
+                    <strong>Zafer Chatzi Moumin</strong><br>
+                    Edergasse 2<br>
+                    91074 Herzogenaurach<br>
+                    Deutschland<br>
+                    E-Mail: zaferhaci34@gmail.com
+                </p>
 
-                <!-- Cards -->
-                <div class="row">
-                    <div class="col-md-6 mb-4">
-                        <div class="h-100 p-5 rounded-3 hover-card" style="background: rgba(255,255,255,0.05);">
-                            <h2 data-i18n="card1-title">Experimente</h2>
-                            <p data-i18n="card1-text">Ich experimentiere hier unter anderem mit statischem Webspace, HTML, CSS und JavaScript.</p>
-                        </div>
-                    </div>
-                    <div class="col-md-6 mb-4">
-                        <div class="h-100 p-5 rounded-3 hover-card" style="background: rgba(255,255,255,0.05);">
-                            <h2 data-i18n="card2-title">Live Tracking</h2>
-                            <p data-i18n="card2-text">Google Analytics Integration zur Echtzeit-Analyse meiner kleinen Spielwiese.</p>
-                        </div>
-                    </div>
-                </div>
+                <h3 class="mt-4" data-i18n="disclaimer-title">Haftungsausschluss</h3> <!-- Weiß -->
+                <p class="text-accent" data-i18n="disclaimer-text">
+                    Trotz sorgfältiger inhaltlicher Kontrolle übernehmen wir keine Haftung für die Inhalte externer Links. Für den Inhalt der verlinkten Seiten sind ausschließlich deren Betreiber verantwortlich.
+                </p>
 
-                <!-- About Me Section -->
-                <div class="row my-5">
-                    <div class="col-12">
-                        <div class="p-5 rounded-3 hover-card" style="background: rgba(255,255,255,0.05);">
-                            <h2 class="mb-4" style="color: #fff;" data-i18n="about-title">Über mich</h2>
-                            <p class="fs-5 text-accent" data-i18n="about-text">
-                                [Hier kommt der neue Text hin]
-                            </p>
-                            <!-- HIER DIE NEUE HAUPTÜBERSCHRIFT EINFÜGEN -->
-                            <h2 class="text-white fw-bold mt-5 mb-4 border-bottom pb-2" style="border-color: var(--accent) !important;" data-i18n="skills-main-title">Tech Stack & Tools</h2>
-                            <!-- Tech Stack Badges -->
-                            <div class="mt-4">
-                                <h5 class="text-light mb-3">Web, App & Backend</h5>
-                                <div class="d-flex flex-wrap gap-2 mb-4">
-                                    <span class="badge bg-dark border border-accent text-accent">HTML5</span>
-                                    <span class="badge bg-dark border border-accent text-accent">CSS3</span>
-                                    <span class="badge bg-dark border border-accent text-accent">JavaScript</span>
-                                    <span class="badge bg-dark border border-accent text-accent">Node.js</span>
-                                    <span class="badge bg-dark border border-accent text-accent">REST APIs</span>
-                                    <span class="badge bg-dark border border-accent text-accent">Firebase</span>
-                                    <span class="badge bg-dark border border-accent text-accent">Vue.js</span>
-                                    <span class="badge bg-dark border border-accent text-accent">Bootstrap</span>
-                                </div>
+                <h3 class="mt-4" data-i18n="copyright-title">Urheberrecht</h3>
+                <p class="text-accent" data-i18n="copyright-text">
+                    Alle Inhalte, Grafiken und Code-Fragmente auf dieser Website unterliegen dem Urheberrecht. Eine Vervielfältigung oder Verwendung ist ohne ausdrückliche Zustimmung nicht gestattet.
+                </p>
 
-                                <h5 class="text-light mb-3">Entwicklung & Infrastruktur</h5>
-                                <div class="d-flex flex-wrap gap-2 mb-4">
-                                    <span class="badge bg-dark border border-accent text-accent">Python</span>
-                                    <span class="badge bg-dark border border-accent text-accent">Java</span>
-                                    <span class="badge bg-dark border border-accent text-accent">C#</span>
-                                    <span class="badge bg-dark border border-accent text-accent">SQL & NoSQL</span>
-                                    <span class="badge bg-dark border border-accent text-accent">Git</span>
-                                    <span class="badge bg-dark border border-accent text-accent">Docker</span>
-                                    <span class="badge bg-dark border border-accent text-accent">Virtualisierung</span>
-                                </div>
-
-                                <h5 class="text-light mb-3">Workflow, KI & Kreatives</h5>
-                                <div class="d-flex flex-wrap gap-2">
-                                    <span class="badge bg-dark border border-accent text-accent">Agiles PM / Jira</span>
-                                    <span class="badge bg-dark border border-accent text-accent">KI-Tools / AI Literacy</span>
-                                    <span class="badge bg-dark border border-accent text-accent">Canva</span>
-                                    <span class="badge bg-dark border border-accent text-accent">3D-Druck & Slicer</span>
-                                    <span class="badge bg-dark border border-accent text-accent">Dokumentation</span>
-                                </div>
-                            </div>
-                        </div> <!-- HIER SCHLIESST DIE ÜBER-MICH BOX -->
-                    </div> <!-- HIER SCHLIESST DIE COL-12 -->
-                </div> <!-- HIER SCHLIESST DIE ROW MY-5 -->
-
-                <!-- Teaser Section -->
-                <div class="text-center my-5 py-5 border-top border-dark">
-                    <h3 class="mb-3" data-i18n="pause-text">Lust auf eine Pause?</h3>
-                    <a href="game/index.html" class="btn btn-neon btn-lg px-5" data-i18n="btn-play">🎮 Hunterz Spielen</a>
-                </div>
-
-                <!-- Socials Section -->
-                <div class="text-center mt-3 mb-5">
+                <div class="text-center mt-5 mb-5">
                     <p class="socials-title mb-3" data-i18n="social-title">Folge mir auf meinen Kanälen:</p>
                     <div class="d-flex justify-content-center gap-4">
                         <a href="https://github.com/Saruhan1907" class="social-link" target="_blank"><i class="bi bi-github"></i></a>
@@ -242,11 +187,11 @@
                         <a href="https://instagram.com/zafer_haci/" class="social-link" target="_blank"><i class="bi bi-instagram"></i></a>
                     </div>
                 </div>
-
-            </div> <!-- HIER SCHLIESST DIE COL-LG-10 -->
-        </div> <!-- HIER SCHLIESST DIE ROW JUSTIFY-CONTENT-CENTER -->
+            </div>
+        </div>
     </main>
 
+    <!-- Footer -->
     <footer class="text-center text-muted">
         <div class="container">
             <img src="DS_Logo.png" alt="Logo" style="height: 50px; margin-bottom: 10px; opacity: 0.8;">
@@ -254,7 +199,7 @@
         </div>
     </footer>
 
-    <!-- I18N Script -->
+    <!-- Neues, interaktives I18N Script für die Sprach-Buttons -->
     <script>
     // Hier weisen wir den Sprachen die echten Bild-Pfade zu
     const langFlags = {
@@ -296,7 +241,7 @@
         }
     }
 
-    // Event-Listener für die Dropdown-Items
+    // Event-Listener für die Dropdown-Items der Sprachauswahl registrieren
     document.querySelectorAll('#languageMenu .dropdown-item').forEach(item => {
         item.addEventListener('click', (e) => {
             const selectedLang = e.currentTarget.getAttribute('data-lang');
