@@ -1,0 +1,180 @@
+/* ==========================================================================
+   1. GLOBALE VARIABLEN & BASICS
+   ========================================================================== */
+:root { 
+    --accent: #00ffcc; 
+    --bg: #0a0a1a; 
+    --subtext-color: #00ffcc; 
+}
+
+html {
+    scroll-behavior: smooth;
+    scroll-padding-top: 100px; /* Verhindert, dass die fixierte Navbar Boxen verdeckt */
+}
+
+body { 
+    background-color: var(--bg); 
+    color: #fff; 
+    font-family: 'Segoe UI', sans-serif; 
+}
+
+/* Neue Utility-Klasse für deine Neon-Farbe */
+.text-accent {
+    color: var(--subtext-color) !important;            
+}
+
+/* ==========================================================================
+   2. NAVBAR & NAVIGATION
+   ========================================================================== */
+/* Navbar Glas-Effekt */
+.navbar { 
+    background: rgba(10, 10, 26, 0.85); 
+    backdrop-filter: blur(10px); 
+    border-bottom: 1px solid #222; 
+}
+
+/* Standard-Zustand des Menü-Buttons */
+.navbar .dropdown-toggle {
+    color: var(--accent) !important;
+    border-color: var(--accent) !important;
+    background-color: transparent !important;
+    transition: all 0.2s ease-in-out;
+}
+
+/* Hover-Effekt & Zustand, wenn das Menü geöffnet ist (.show) */
+.navbar .dropdown-toggle:hover,
+.navbar .dropdown-toggle:focus,
+.navbar .dropdown-toggle.show {
+    color: #000000 !important;
+    background-color: var(--accent) !important;
+    border-color: var(--accent) !important;
+}
+
+/* ==========================================================================
+   3. DROPDOWNS (MENÜ & SPRACHAUSWAHL)
+   ========================================================================== */
+/* Hintergrund & Rahmen für das Dropdown-Menü */
+.dropdown-menu-dark {
+    background-color: var(--bg) !important;
+    border: 1px solid #222 !important; 
+}
+
+/* Trennlinien im Dropdown-Menü anpassen */
+.dropdown-menu-dark .dropdown-divider {
+    border-top: 1px solid #222 !important;
+    opacity: 1 !important; /* Verhindert das Standard-Ausblenden von Bootstrap */
+}
+
+/* Dropdown-Text in der leuchtenden Neon-Farbe */
+.dropdown-menu-dark .dropdown-item {
+    color: var(--accent) !important; 
+    transition: all 0.2s ease-in-out;
+}
+
+/* Hover-Effekt: Hintergrund wird leuchtgrün und Text wird schwarz */
+.dropdown-menu-dark .dropdown-item:hover {
+    color: #000000 !important;
+    background-color: var(--accent) !important;
+}
+
+/* ==========================================================================
+   4. KARTEN (CARDS) & BADGES
+   ========================================================================== */
+/* Hover-Effekte für Cards */
+.hover-card { 
+    transition: all 0.3s ease; 
+    border: 1px solid #222; 
+}
+
+.hover-card:hover { 
+    transform: translateY(-10px); 
+    border-color: var(--accent); 
+    box-shadow: 0 10px 20px rgba(0, 255, 204, 0.1); 
+}
+
+/* Farbe für den Text in den Kärtchen und im Hero-Text */
+.hover-card p, .hero-text { 
+    color: var(--subtext-color); 
+}
+
+/* Tech-Badges Hover-Effekt */
+.badge {
+    transition: all 0.25s ease-in-out; 
+    cursor: default; 
+}
+
+.badge:hover {
+    background-color: var(--accent) !important; 
+    color: #000000 !important;                  
+    border-color: var(--accent) !important;      
+    box-shadow: 0 0 12px var(--accent);          
+    transform: translateY(-2px);                 
+}
+
+/* ==========================================================================
+   5. BUTTONS, LINKS & FORMULARE
+   ========================================================================== */
+/* Custom Neon Button */
+.btn-neon { 
+    background: transparent; 
+    border: 2px solid var(--accent); 
+    color: var(--accent); 
+    transition: 0.3s; 
+}
+
+.btn-neon:hover { 
+    background: var(--accent); 
+    color: #000; 
+    box-shadow: 0 0 15px var(--accent); 
+}
+
+/* Styling für die klickbaren Links in der Intro-Box */
+.intro-link {
+    text-decoration: none !important;
+    transition: all 0.2s ease-in-out;
+    display: block;
+    cursor: pointer;
+}
+
+.intro-link:hover {
+    transform: translateY(-3px);
+}
+
+.intro-link:hover .text-accent {
+    text-shadow: 0 0 10px var(--accent);
+}
+
+/* Hells den Platzhaltertext in Eingabefeldern (z.B. Gästebuch) auf */
+.form-control::placeholder {
+    color: rgba(255, 255, 255, 0.5) !important; 
+    opacity: 1; 
+}
+
+/* ==========================================================================
+   6. FOOTER & SOCIAL LINKS
+   ========================================================================== */
+footer { 
+    background: #05050f; 
+    border-top: 1px solid #222; 
+    margin-top: 50px; 
+    padding: 20px 0; 
+}
+
+footer p { 
+    color: #00ffcc; 
+}
+
+.socials-title { 
+    color: #fff; 
+}
+
+.social-link { 
+    color: #00ffcc; 
+    font-size: 2rem; 
+    transition: color 0.3s; 
+}
+
+.social-link:hover { 
+    color: var(--accent); 
+    transform: scale(1.1); 
+}

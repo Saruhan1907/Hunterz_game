@@ -3,20 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>devz-solutions | Playground</title>
-    
+    <title>devz.solutions - Guestbook</title>
     <!-- Bootstrap 5 -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <!-- Bootstrap Icons -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     <!-- HIER DEIN NEUES ZENTRALES STYLESHEET -->
     <link rel="stylesheet" href="style.css">
-
-    <script async src="https://www.googletagmanager.com/gtag/js?id=G-97T8B1FEPQ"></script>
-    <script>window.dataLayer = window.dataLayer || []; function gtag(){dataLayer.push(arguments);} gtag('js', new Date()); gtag('config', 'G-97T8B1FEPQ');</script>
-    
-    <!-- WICHTIG: Du brauchst das Bootstrap JS für das Dropdown -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </head>
 <body>
 
@@ -117,59 +110,93 @@
         </div> <!-- Schließt container -->
     </nav>
 
-    <!-- Hauptinhalt (Bleibt unberührt) -->
+    <!-- Hauptinhalt -->
     <main class="container py-5">
-        <div class="row justify-content-center">
-            <div class="text-center mb-5">
-        <h1 class="display-4 fw-bold text-white d-flex align-items-center justify-content-center gap-3">
-            <i class="bi bi-envelope-paper text-accent"></i>
-            <span data-i18n="contact-title">Kontakt</span>
-        </h1>
-    </div>
-            <!-- Die schicke Gästebuch-Style-Box -->
-            <div class="hover-card p-4 rounded-3" style="background: rgba(255, 255, 255, 0.05);">
-                <!-- Formspree Formular -->
-                <form action="https://formspree.io/f/xnjenqgy" method="POST">
-                    
-                    <div class="mb-3">
-                        <label class="form-label text-accent" data-i18n="form-name">Name</label>
-                        <input type="text" name="name" class="form-control bg-dark text-light border-secondary" required>
-                    </div>
-                    
-                    <div class="mb-3">
-                        <label class="form-label text-accent" data-i18n="form-email">E-Mail</label>
-                        <input type="email" name="email" class="form-control bg-dark text-light border-secondary" required>
-                    </div>
-                    
-                    <div class="mb-3">
-                        <label class="form-label text-accent" data-i18n="form-msg">Nachricht</label>
-                        <textarea name="message" class="form-control bg-dark text-light border-secondary" rows="5" required></textarea>
-                    </div>
-                    
-                    <button type="submit" class="btn btn-neon" data-i18n="btn-send">Senden</button>
-                </form>
-            </div>
-
-                <div class="text-center mt-5 mb-5">
-                    <p class="socials-title mb-3" data-i18n="social-title">Folge mir auf meinen Kanälen:</p>
-                    <div class="d-flex justify-content-center gap-4">
-                        <a href="https://github.com/Saruhan1907" class="social-link" target="_blank"><i class="bi bi-github"></i></a>
-                        <a href="https://www.linkedin.com/in/zafer-chatzi-moumin-796145363/" class="social-link" target="_blank"><i class="bi bi-linkedin"></i></a>
-                        <a href="https://www.facebook.com/zafer.haci/" class="social-link" target="_blank"><i class="bi bi-facebook"></i></a>
-                        <a href="https://instagram.com/zafer_haci/" class="social-link" target="_blank"><i class="bi bi-instagram"></i></a>
-                    </div>
-                </div>
-            </div>
+        
+        <!-- Haupttitel der Seite -->
+        <div class="text-center mb-5">
+            <h1 class="display-4 fw-bold text-white d-flex align-items-center justify-content-center gap-3">
+                <i class="bi bi-journal-text text-accent"></i>
+                <span data-i18n="guestbook-main-title">Gästebuch</span>
+            </h1>
         </div>
-    </main>
 
-    <!-- Footer -->
+        <!-- Zentrierter Inhalt -->
+        <div class="row justify-content-center">
+            <div class="col-lg-10">
+                <div class="row g-4">
+                    
+                    <!-- Linke Spalte: Feedback abschicken -->
+                    <div class="col-md-5">
+                        <div class="hover-card p-4 rounded-3 h-100" style="background: rgba(255,255,255,0.05);">
+                            <div class="d-flex align-items-center gap-2 mb-3">
+                                <i class="bi bi-pen text-accent fs-4"></i>
+                                <h2 class="h4 m-0 text-accent" data-i18n="guestbook-form-title">Eintrag schreiben</h2>
+                            </div>
+                            
+                            <form id="guestbookForm" onsubmit="event.preventDefault();">
+                                <div class="mb-3">
+                                    <!-- Label ist jetzt text-white statt text-accent -->
+                                    <label for="gbName" class="form-label text-white small fw-bold" data-i18n="guestbook-name-label">Dein Name</label>
+                                    <!-- Input mit sauberem data-i18n-placeholder -->
+                                    <input type="text" class="form-control bg-transparent text-white border-secondary" id="gbName" required placeholder="Name..." data-i18n-placeholder="guestbook-name-placeholder">
+                                </div>
+                                <div class="mb-3">
+                                    <!-- Label ist jetzt text-white statt text-accent -->
+                                    <label for="gbMessage" class="form-label text-white small fw-bold" data-i18n="guestbook-msg-label">Deine Nachricht</label>
+                                    <!-- Textarea mit sauberem data-i18n-placeholder -->
+                                    <textarea class="form-control bg-transparent text-white border-secondary" id="gbMessage" rows="5" required placeholder="Schreib etwas Nettes..." data-i18n-placeholder="guestbook-msg-placeholder"></textarea>
+                                </div>
+                                <button type="submit" class="btn btn-neon w-100" data-i18n="guestbook-submit-btn">Eintragen</button>
+                            </form>
+                        </div>
+                    </div>
+
+                    <!-- Rechte Spalte: Letzte Feedbacks (Mock-Einträge) -->
+                    <div class="col-md-7">
+                        <div class="hover-card p-4 rounded-3 h-100" style="background: rgba(255,255,255,0.05);">
+                            <div class="d-flex align-items-center gap-2 mb-4">
+                                <i class="bi bi-chat-square-quote text-accent fs-4"></i>
+                                <h2 class="h4 m-0 text-accent" data-i18n="guestbook-entries-title">Letzte Einträge</h2>
+                            </div>
+
+                            <!-- Container für die Einträge -->
+                            <div id="guestbookEntries" class="d-flex flex-column gap-3" style="max-height: 380px; overflow-y: auto; padding-right: 5px;">
+                                
+                                <!-- Mock-Eintrag 1 -->
+                                <div class="p-3 rounded border border-secondary" style="background: rgba(255,255,255,0.02);">
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <strong class="text-accent">CyberCoder99</strong>
+                                        <span class="text-muted small">16.07.2026</span>
+                                    </div>
+                                    <p class="mb-0 small text-light">Mega Design! Die API-Spielwiese läuft extrem flüssig und das dunkle Cyber-Thema brennt nicht in den Augen. Weiter so!</p>
+                                </div>
+
+                                <!-- Mock-Eintrag 2 -->
+                                <div class="p-3 rounded border border-secondary" style="background: rgba(255,255,255,0.02);">
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <strong class="text-accent">Sarah_Dev</strong>
+                                        <span class="text-muted small">15.07.2026</span>
+                                    </div>
+                                    <p class="mb-0 small text-light">Das Hunterz-Spiel macht süchtig, verdammt! Richtig coole Portfolio-Website, bro. 🔥</p>
+                                </div>
+
+                            </div>
+                        </div>
+                    </div>
+
+                </div> <!-- row g-4 -->
+            </div> <!-- col-lg-10 -->
+        </div> <!-- row justify-content-center -->
+    </main>
     <footer class="text-center text-muted">
         <div class="container">
             <img src="DS_Logo.png" alt="Logo" style="height: 50px; margin-bottom: 10px; opacity: 0.8;">
             <p data-i18n="footer-text">&copy; 2026 devz.solutions | Built with Passion.</p>
         </div>
     </footer>
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script src="translate.js"></script>
 </body>
 </html>

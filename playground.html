@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>devz-solutions | Playground</title>
+    
+    <!-- Bootstrap 5 -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <!-- HIER DEIN NEUES ZENTRALES STYLESHEET -->
+    <link rel="stylesheet" href="style.css">
+
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-97T8B1FEPQ"></script>
+    <script>window.dataLayer = window.dataLayer || []; function gtag(){dataLayer.push(arguments);} gtag('js', new Date()); gtag('config', 'G-97T8B1FEPQ');</script>
+    
+    <!-- WICHTIG: Du brauchst das Bootstrap JS für das Dropdown -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</head>
+<body>
+
+    <!-- Navigationsleiste -->
+    <nav class="navbar navbar-dark sticky-top">
+        <div class="container d-flex justify-content-between align-items-center">
+            <!-- Logo -->
+            <a class="navbar-brand fw-bold" href="index.html">
+                <img src="DS_Logo.png" alt="Logo" style="height: 40px; margin-right: 10px;"> 
+                devz<span style="color:var(--accent)">.</span>solutions
+            </a>
+
+            <!-- Rechte Seite: Dropdown + Sprache -->
+            <div class="d-flex gap-3 align-items-center">
+                
+                <!-- Menü Dropdown -->
+                <div class="dropdown">
+                    <!-- style="min-width: 165px;" sorgt für die perfekte Breite passend zum Dropdown -->
+                    <button class="btn btn-outline-light dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" style="min-width: 165px;">
+                        <span data-i18n="menu-btn-text">Menü</span>
+                    </button>
+                    <!-- Hier setzen wir ebenfalls min-width: 165px; damit beide exakt übereinstimmen -->
+                    <ul class="dropdown-menu dropdown-menu-dark" style="min-width: 165px;">
+                        <li>
+                            <a class="dropdown-item d-flex align-items-center" href="index.html">
+                                <i class="bi bi-house-door text-accent me-2"></i>
+                                <span data-i18n="menu-home">Home</span>
+                            </a>
+                        </li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li>
+                            <a class="dropdown-item d-flex align-items-center" href="game/index.html">
+                                <i class="bi bi-controller text-accent me-2"></i>
+                                <span data-i18n="menu-game">Game</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a class="dropdown-item d-flex align-items-center" href="playground.html">
+                                <i class="bi bi-cpu text-accent me-2"></i>
+                                <span data-i18n="menu-playground">Playground</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a class="dropdown-item d-flex align-items-center" href="guestbook.html">
+                                <i class="bi bi-journal-text text-accent me-2"></i>
+                                <span data-i18n="menu-guestbook">Gästebuch</span>
+                            </a>
+                        </li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li>
+                            <a class="dropdown-item d-flex align-items-center" href="kontakt.html">
+                                <i class="bi bi-envelope-paper text-accent me-2"></i>
+                                <span data-i18n="menu-contact">Contact</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a class="dropdown-item d-flex align-items-center" href="impressum.html">
+                                <i class="bi bi-shield-shaded text-accent me-2"></i>
+                                <span data-i18n="menu-impressum">Impressum</span>
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+
+                <!-- Neue Sprachauswahl als schickes Dropdown -->
+                <div class="dropdown">
+                    <!-- style="min-width: 100px;" macht den Button perfekt kompakt. 
+                         justify-content-between sorgt für saubere Abstände von Flagge und Pfeil -->
+                    <button class="btn btn-outline-light dropdown-toggle d-flex align-items-center justify-content-between gap-2" type="button" id="languageBtn" data-bs-toggle="dropdown" aria-expanded="false" style="min-width: 100px;">
+                        <div class="d-flex align-items-center gap-2">
+                            <img src="https://flagcdn.com/w20/de.png" alt="DE" style="width: 20px; height: auto; border-radius: 2px;"> 
+                            <span>DE</span>
+                        </div>
+                    </button>
+                    <!-- Auch hier setzen wir min-width auf 100px, damit Dropdown und Button exakt bündig abschließen -->
+                    <ul class="dropdown-menu dropdown-menu-dark dropdown-menu-end" id="languageMenu" style="min-width: 100px;">
+                        <li>
+                            <button class="dropdown-item d-flex align-items-center gap-2" type="button" data-lang="de">
+                                <img src="https://flagcdn.com/w20/de.png" alt="DE" style="width: 20px; height: auto; border-radius: 2px;"> DE
+                            </button>
+                        </li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li>
+                            <button class="dropdown-item d-flex align-items-center gap-2" type="button" data-lang="en">
+                                <img src="https://flagcdn.com/w20/gb.png" alt="EN" style="width: 20px; height: auto; border-radius: 2px;"> EN
+                            </button>
+                        </li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li>
+                            <button class="dropdown-item d-flex align-items-center gap-2" type="button" data-lang="tr">
+                                <img src="https://flagcdn.com/w20/tr.png" alt="TR" style="width: 20px; height: auto; border-radius: 2px;"> TR
+                            </button>
+                        </li>
+                    </ul>
+                </div>
+
+            </div> <!-- Schließt d-flex gap-3 (Rechte Seite) -->
+        </div> <!-- Schließt container -->
+    </nav>
+
+    <main class="container py-5">
+        
+        <!-- Haupttitel (Mit dem neuen Bootstrap-Icon!) -->
+        <div class="text-center mb-5">
+            <h1 class="display-4 fw-bold text-white d-flex align-items-center justify-content-center gap-3">
+                <i class="bi bi-cpu text-accent"></i>
+                <span data-i18n="playground-title">API Spielwiese</span>
+            </h1>
+        </div>
+
+        <!-- DER RETTENDE WRAPPER: Macht die Boxen wieder kompakt & mittig! -->
+        <div class="row justify-content-center">
+            <div class="col-lg-10">
+
+                <!-- Einleitungs- & Info-Box -->
+                <div class="hover-card p-4 rounded-3 mb-4" style="background: rgba(255,255,255,0.05);">
+                    <div class="d-flex align-items-center gap-2 mb-3">
+                        <i class="bi bi-terminal text-accent fs-3"></i>
+                        <h2 class="h4 m-0 text-accent" data-i18n="intro-title">Willkommen auf meinem API Playground!</h2>
+                    </div>
+                    <p class="mb-4" style="color: #fff;" data-i18n="intro-desc">
+                        Auf dieser Seite experimentiere ich mit verschiedenen API-Verbindungen. Hier werden Daten in Echtzeit von externen Servern geladen, verarbeitet und dynamisch im modernen Cyber-Design dargestellt:
+                    </p>
+                    <div class="row g-3">
+                        <!-- Feature 1: Wetter -->
+                        <div class="col-md-6 col-lg-3">
+                            <a href="#weather-section" class="intro-link">
+                                <div class="d-flex align-items-start gap-2">
+                                    <i class="bi bi-cloud-sun text-accent mt-1"></i>
+                                    <div>
+                                        <strong class="text-accent">Weather API</strong>
+                                        <p class="small mb-0" style="color: #fff;" data-i18n="intro-feat-weather">Echtzeit-Wetterdaten aus der Region.</p>
+                                    </div>
+                                </div>
+                            </a>
+                        </div>
+                        <!-- Feature 2: Fun Facts -->
+                        <div class="col-md-6 col-lg-3">
+                            <a href="#facts-section" class="intro-link">
+                                <div class="d-flex align-items-start gap-2">
+                                    <i class="bi bi-lightbulb text-accent mt-1"></i>
+                                    <div>
+                                        <strong class="text-accent">Facts API</strong>
+                                        <p class="small mb-0" style="color: #fff;" data-i18n="intro-feat-facts">Skurrile, dreisprachige Fun-Facts.</p>
+                                    </div>
+                                </div>
+                            </a>
+                        </div>
+                        <!-- Feature 3: QR Generator -->
+                        <div class="col-md-6 col-lg-3">
+                            <a href="#qr-section" class="intro-link">
+                                <div class="d-flex align-items-start gap-2">
+                                    <i class="bi bi-qr-code text-accent mt-1"></i>
+                                    <div>
+                                        <strong class="text-accent">QR Generator</strong>
+                                        <p class="small mb-0" style="color: #fff;" data-i18n="intro-feat-qr">Generiert QR-Codes direkt im Browser.</p>
+                                    </div>
+                                </div>
+                            </a>
+                        </div>
+                        <!-- Feature 4: Pet Image -->
+                        <div class="col-md-6 col-lg-3">
+                            <a href="#pet-section" class="intro-link">
+                                <div class="d-flex align-items-start gap-2">
+                                    <i class="bi bi-images text-accent mt-1"></i>
+                                    <div>
+                                        <strong class="text-accent">Pet API</strong>
+                                        <p class="small mb-0" style="color: #fff;" data-i18n="intro-feat-pets">Zufällige Hunde- und Katzenbilder.</p>
+                                    </div>
+                                </div>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Erste Reihe (Wetter & Unnützes Wissen) -->
+                <div class="row">
+                    
+                    <!-- Wetter Box (Kompakt) -->
+                    <div class="col-md-6 mb-4" id="weather-section">
+                        <div class="hover-card p-4 rounded-3" style="background: rgba(255,255,255,0.05);">
+                            <div class="d-flex align-items-center gap-2 mb-3">
+                                <i class="bi bi-cloud-sun text-accent fs-4"></i>
+                                <h3 class="text-accent m-0" data-i18n="weather-title">Wetter in Herzogenaurach</h3>
+                            </div>
+                            <p class="mb-0" style="color: #fff;">Temperatur: <span id="weather-temp">--.-</span>°C</p>
+                        </div>
+                    </div>
+
+                    <!-- Unnützes Wissen Box (Kompakt) -->
+                    <div class="col-md-6 mb-4" id="facts-section">
+                        <div class="hover-card p-4 rounded-3" style="background: rgba(255,255,255,0.05);">
+                            <div class="d-flex align-items-center gap-2 mb-3">
+                                <i class="bi bi-lightbulb text-accent fs-4"></i>
+                                <h3 class="text-accent m-0" data-i18n="facts-title">Unnützes Wissen</h3>
+                            </div>
+                            <p id="fact-result" class="mb-3" style="color: #fff; min-height: 48px;">Lade Fakt...</p>
+                            <button onclick="fetchFact()" class="btn btn-neon w-100" data-i18n="facts-btn">Neuer Fakt</button>
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- Zweite Reihe (QR-Code & Haustiere) -->
+                <div class="row">
+                    
+                    <!-- QR-Code Generator Box -->
+                    <div class="col-md-6 mb-4" id="qr-section">
+                        <div class="hover-card p-4 rounded-3" style="background: rgba(255,255,255,0.05); min-height: 380px; display: flex; flex-direction: column; justify-content: space-between;">
+                            <div>
+                                <div class="d-flex align-items-center gap-2 mb-3">
+                                    <i class="bi bi-qr-code text-accent fs-4"></i>
+                                    <h3 class="text-accent m-0" data-i18n="qr-title">QR-Code Generator</h3>
+                                </div>
+                                <div class="mt-3">
+                                    <input type="text" id="qr-input" class="form-control bg-transparent text-white border-secondary mb-3" placeholder="Text oder URL eingeben..." data-i18n-placeholder="qr-placeholder">
+                                    <button onclick="generateQRCode()" class="btn btn-neon w-100" data-i18n="qr-btn">Generieren</button>
+                                </div>
+                            </div>
+                            <div class="text-center mt-3" style="min-height: 150px; display: flex; align-items: center; justify-content: center;">
+                                <div id="qr-placeholder" class="border border-secondary border-dashed rounded d-flex align-items-center justify-content-center text-muted" style="width: 150px; height: 150px; border-style: dashed !important;">
+                                    <i class="bi bi-qr-code fs-1"></i>
+                                </div>
+                                <img id="qr-image" class="img-fluid d-none rounded" style="width: 150px; height: 150px; border: 2px solid var(--accent); box-shadow: 0 0 10px var(--accent);" alt="QR Code">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Tierische Gefährten Box -->
+                    <div class="col-md-6 mb-4" id="pet-section">
+                        <div class="hover-card p-4 rounded-3" style="background: rgba(255,255,255,0.05); min-height: 380px; display: flex; flex-direction: column; justify-content: space-between;">
+                            <div>
+                                <div class="d-flex align-items-center gap-2 mb-3">
+                                    <i class="bi bi-images text-accent fs-4"></i>
+                                    <h3 class="text-accent m-0" data-i18n="pet-title">Zufällige Haustiere</h3>
+                                </div>
+                                <div class="d-flex gap-2 mt-3">
+                                    <button onclick="fetchPetImage('dog')" class="btn btn-neon flex-grow-1" data-i18n="pet-btn-dog">Hund 🐶</button>
+                                    <button onclick="fetchPetImage('cat')" class="btn btn-neon flex-grow-1" data-i18n="pet-btn-cat">Katze 🐱</button>
+                                </div>
+                            </div>
+                            <div class="text-center mt-3" style="height: 200px; display: flex; align-items: center; justify-content: center;">
+                                <div id="pet-spinner" class="spinner-border text-info d-none" role="status"></div>
+                                <img id="pet-image" class="img-fluid rounded" style="max-height: 200px; width: 100%; object-fit: cover; border: 1px solid #222;" src="https://images.unsplash.com/photo-1543466835-00a7907e9de1?q=80&w=500" alt="Pet Image">
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+
+            </div> <!-- Schließt col-lg-10 -->
+        </div> <!-- Schließt row justify-content-center -->
+    </main>
+
+    <footer class="text-center text-muted">
+        <div class="container">
+            <img src="DS_Logo.png" alt="Logo" style="height: 50px; margin-bottom: 10px; opacity: 0.8;">
+            <p data-i18n="footer-text">&copy; 2026 devz.solutions | Built with Passion.</p>
+        </div>
+    </footer>
+    <script src="playground.js"></script>
+    <script src="translate.js"></script>
+</body>
+</html>
