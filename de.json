@@ -60,5 +60,7 @@
     "guestbook-msg-placeholder": "Schreib etwas Nettes...",
     "guestbook-submit-btn": "Eintragen",
     "guestbook-entries-title": "Letzte Einträge",
-    "guestbook-no-entries": "Noch keine Einträge vorhanden. Sei der Erste!"
+    "guestbook-no-entries": "Noch keine Einträge vorhanden. Sei der Erste!",
+    "guestbook-intro-title": "Feedback & Grüße",
+    "guestbook-intro-text": "Schön, dass du da bist! Hinterlasse mir gerne liebe Grüße und vor allem dein <strong class='text-accent'>Feedback</strong> zu dieser Website, dem Spiel und allen anderen Projekten hier. Ich freue mich über jeden Eintrag!"
 }
