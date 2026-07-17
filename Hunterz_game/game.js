@@ -1,6 +1,9 @@
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 
+// Variable, um zu merken, ob der Score in dieser Runde schon eingetragen wurde
+let scoreSubmitted = false;
+
 // ===== DYNAMISCHE GRÖSSE =====
 let CANVAS_WIDTH = window.innerWidth;
 let CANVAS_HEIGHT = window.innerHeight;
@@ -259,6 +262,129 @@ const pauseMenuBtn = {
     w: 220,
     h: 50
 };
+
+// ==========================================
+// ===== FIREBASE & LEADERBOARD LOGIK =======
+// ==========================================
+
+// ===== FIREBASE INITIALISIERUNG =====
+const firebaseConfig = {
+  apiKey: "AIzaSyC1XrxNU_W5Qib3Lk840IXMWJQE1-69P4M",
+  authDomain: "devz-guestbook.firebaseapp.com",
+  projectId: "devz-guestbook",
+  storageBucket: "devz-guestbook.firebasestorage.app",
+  messagingSenderId: "436656643800",
+  appId: "1:436656643800:web:4778ae36504fb3b0401ad",
+  measurementId: "G-RLMJL2X96"
+};
+
+// Firebase initialisieren
+if (!firebase.apps.length) {
+    firebase.initializeApp(firebaseConfig);
+}
+const highscoreDB = firebase.firestore();
+
+// 3. Highscores aus der Datenbank abrufen
+function fetchTopHighscores(callback) {
+    highscoreDB.collection("highscores").orderBy("score", "desc").limit(10).get()
+        .then((querySnapshot) => {
+            const scores = [];
+            querySnapshot.forEach((doc) => {
+                scores.push(doc.data());
+            });
+            if (typeof callback === "function") {
+                callback(scores);
+            }
+        })
+        .catch((error) => {
+            console.error("Fehler beim Laden der Highscores: ", error);
+        });
+}
+
+// 4. Leaderboard-Tabelle aufbauen (Füllt leere Plätze mit "-" auf)
+function renderLeaderboard(scores) {
+    const tbody = document.getElementById('leaderboardRows');
+    if (!tbody) return;
+    
+    tbody.innerHTML = ''; // Alte Daten löschen
+    
+    // Schleife läuft IMMER exakt 10-mal für Platz 1 bis 10
+    for (let index = 0; index < 10; index++) {
+        const tr = document.createElement('tr');
+        
+        // Wenn für diesen Platz ein Eintrag aus der DB existiert
+        if (index < scores.length) {
+            const entry = scores[index];
+            const timeSecs = entry.time || 0;
+            const mins = Math.floor(timeSecs / 60);
+            const secs = Math.floor(timeSecs % 60).toString().padStart(2, '0');
+            const formattedTime = `${mins}:${secs}`;
+
+            tr.innerHTML = `
+                <td>${index + 1}</td>
+                <td>${entry.name || 'Unknown'}</td>
+                <td>${entry.score || 0}</td>
+                <td>${entry.level || 1}</td>
+                <td>${formattedTime}</td>
+            `;
+        } 
+        // Wenn kein Eintrag existiert -> Platzhalter anzeigen
+        else {
+            tr.innerHTML = `
+                <td>${index + 1}</td>
+                <td>-</td>
+                <td>-</td>
+                <td>-</td>
+                <td>-</td>
+            `;
+        }
+        tbody.appendChild(tr);
+    }
+}
+
+// 5. Neuen Highscore senden
+document.addEventListener('DOMContentLoaded', () => {
+    const submitBtn = document.getElementById('submitHighscoreBtn');
+    const nameInput = document.getElementById('playerNameInput');
+    const overlay = document.getElementById('highscoreOverlay');
+
+    if (submitBtn) {
+        submitBtn.addEventListener('click', () => {
+            const playerName = nameInput.value.trim();
+            
+            if (playerName.length === 0) {
+                alert("Bitte gib einen Namen ein!");
+                return;
+            }
+
+            submitBtn.disabled = true;
+            submitBtn.innerText = "Wird gesendet...";
+
+            highscoreDB.collection("highscores").add({
+                name: playerName,
+                score: score, 
+                level: player.level, 
+                time: Math.floor(gameTime), 
+                timestamp: firebase.firestore.FieldValue.serverTimestamp()
+            })
+            .then(() => {
+                overlay.style.display = 'none';
+                submitBtn.disabled = false;
+                submitBtn.innerText = "Score absenden";
+                nameInput.value = ""; 
+                
+                resetGameState();
+                gameState = 'MAIN_MENU'; 
+            })
+            .catch((error) => {
+                console.error("Fehler beim Speichern des Scores: ", error);
+                alert("Fehler beim Speichern. Bitte überprüfe deine Verbindung.");
+                submitBtn.disabled = false;
+                submitBtn.innerText = "Score absenden";
+            });
+        });
+    }
+});
 
 // ===== AUDIO (Web Audio API) =====
 function ensureAudio() {
@@ -1103,6 +1229,16 @@ function touchShoot() {
 
 // ===== TASTATUR-EVENTS =====
 window.addEventListener('keydown', (e) => {
+    // 0. FOKUS-LOGIK (Verhindert, dass Tippen im Highscore-Feld Shortcuts auslöst)
+    if (document.activeElement === document.getElementById('playerNameInput')) {
+        // Wenn man im Textfeld Enter drückt, soll der Highscore abgeschickt werden:
+        if (e.key === 'Enter') {
+            const submitBtn = document.getElementById('submitHighscoreBtn');
+            if (submitBtn) submitBtn.click();
+        }
+        return; // Beendet die Funktion sofort, damit das Spiel keine Tasten abfängt
+    }
+
     const key = e.key.toLowerCase();
 
     // 1. ESCAPE-LOGIK (Die wichtigste, zuerst!)
@@ -1730,6 +1866,19 @@ function resetGameState() {
         clearInterval(spawnTimerId);
         spawnTimerId = null;
     }
+
+    // ===== HIGHSCORE OVERLAY RESET =====
+    scoreSubmitted = false; // Erlaubt das Absenden in der nächsten Runde wieder
+    const overlay = document.getElementById('highscoreOverlay');
+    const submitBtn = document.getElementById('submitHighscoreBtn');
+    
+    if (overlay) {
+        overlay.style.display = 'none';
+    }
+    if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.innerText = "Score absenden";
+    }
 }
 
 function resetPlayerPosition() {
@@ -2019,6 +2168,7 @@ function update() {
                         player.health = 0;
                         // Statt nur gameState = 'GAMEOVER'; machst du jetzt:
                         saveHighscore(score); // <--- HIER den Score speichern
+                        showHighscorePopup();
                         gameState = 'GAMEOVER';
                         if (spawnTimerId) clearInterval(spawnTimerId);
                     }
@@ -2185,6 +2335,7 @@ function update() {
                     player.health = 0;
                     // Statt nur gameState = 'GAMEOVER'; machst du jetzt:
                     saveHighscore(score); // <--- HIER den Score speichern
+                    showHighscorePopup();
                     gameState = 'GAMEOVER';
                     if (spawnTimerId) clearInterval(spawnTimerId);
                 }
@@ -3572,6 +3723,11 @@ function drawGameOver() {
     ctx.fillText('Zurück zum Hauptmenü', CANVAS_WIDTH / 2, btnY + btnH / 2 + 7);
 
     ctx.textAlign = 'left';
+    // Ganz am Ende der Funktion fügen wir das hinzu:
+    const overlay = document.getElementById('highscoreOverlay');
+    if (overlay && overlay.style.display !== 'block' && !scoreSubmitted && score > 0) {
+        overlay.style.display = 'block';
+    }
 }
 
 // ===== AUTOMATISCHES FEUER =====
@@ -3639,7 +3795,7 @@ function drawMenuBackground() {
     ctx.globalAlpha = 1.0; // Wichtig: Reset!
 }
 
-// ===== KORRIGIERTER GAME LOOP =====
+// ===== KORRIGIERTER GAME LOOP WITH LEADERBOARD =====
 function gameLoop() {
     // 1. ALLES LÖSCHEN
     ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
@@ -3647,6 +3803,23 @@ function gameLoop() {
     // 2. LOGIK
     checkAutoFire();
     update();
+
+    // ===== AUTOMATISCHE STEUERUNG DES LEADERBOARDS =====
+    const leaderboard = document.getElementById('leaderboardOverlay');
+    if (leaderboard) {
+        if (gameState === 'MAIN_MENU') {
+            // Nur einblenden und Daten laden, wenn es noch nicht offen ist (schont die FPS!)
+            if (leaderboard.style.display !== 'block') {
+                leaderboard.style.display = 'block';
+                fetchTopHighscores(renderLeaderboard);
+            }
+        } else {
+            // Sofort ausblenden, wenn man im Charakter-Screen, beim Spielen oder Game Over ist
+            if (leaderboard.style.display !== 'none') {
+                leaderboard.style.display = 'none';
+            }
+        }
+    }
 
     // 3. ZEICHNEN
     // Alle Menü-Zustände zusammengefasst
@@ -3799,7 +3972,6 @@ function gameLoop() {
         drawPauseMenu();
     }
     else if (gameState === 'CHEST_OPEN') {
-        // 1. Spielfeld im Hintergrund zeichnen
         ctx.fillStyle = '#0a0a1a';
         ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
         drawGrid();
@@ -3808,8 +3980,6 @@ function gameLoop() {
         for (const b of bullets) drawBullet(b);
         drawPlayer();
         drawParticles();
-
-        // 2. Das Menü drüberlegen (das jetzt transparent sein kann)
         drawChestMenu();
     }
     else if (gameState === 'LEVEL_UP') {
@@ -3950,6 +4120,19 @@ function drawBossPointer() {
         ctx.restore();
     }
 }
-
+// ===== HIGHSCORE POPUP LOGIK =====
+function showHighscorePopup() {
+    // 1. Werte in das Popup schreiben
+    document.getElementById('valScore').innerText = score;
+    document.getElementById('valLevel').innerText = player.level;
+    
+    // Zeit formatieren
+    const mins = Math.floor(gameTime / 60);
+    const secs = Math.floor(gameTime % 60).toString().padStart(2, '0');
+    document.getElementById('valTime').innerText = `${mins}:${secs}`;
+    
+    // 2. Popup anzeigen
+    document.getElementById('highscoreOverlay').style.display = 'block';
+}
 // ===== START GAME LOOP =====
 requestAnimationFrame(gameLoop);

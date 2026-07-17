@@ -19,6 +19,7 @@
             -webkit-touch-callout: none;
             -webkit-user-select: none;
             user-select: none;
+            font-family: Arial, sans-serif;
         }
         canvas {
             display: block;
@@ -27,10 +28,211 @@
             border: none;
             background-color: #0a0a1a;
         }
+
+        /* Cyber-Highscore-Overlay */
+        #highscoreOverlay {
+            display: none; /* Standardmäßig unsichtbar */
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            /* Höherer Alpha-Wert (1.0 statt 0.95), damit dahinter liegender Text komplett verschwindet */
+            background: rgb(10, 10, 26); 
+            border: 2px solid #00ffcc;
+            box-shadow: 0 0 30px rgba(0, 255, 204, 0.5);
+            padding: 30px 25px;
+            border-radius: 12px;
+            text-align: center;
+            z-index: 100; /* Sehr hoch ansetzen, um ALLES zu verdecken */
+            width: 90%;
+            max-width: 420px;
+        }
+        #highscoreOverlay h3 {
+            color: #00ffcc;
+            margin-bottom: 15px;
+            font-size: 22px;
+            text-shadow: 0 0 10px rgba(0, 255, 204, 0.5);
+        }
+        #highscoreOverlay p {
+            color: #ffffff;
+            font-size: 14px;
+            margin-bottom: 15px;
+            opacity: 0.8;
+        }
+        #playerNameInput {
+            width: 100%;
+            padding: 12px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid #ffffff;
+            border-radius: 6px;
+            color: #ffffff;
+            font-size: 16px;
+            text-align: center;
+            outline: none;
+            margin-bottom: 15px;
+        }
+        #playerNameInput:focus {
+            border-color: #00ffcc;
+            box-shadow: 0 0 10px rgba(0, 255, 204, 0.2);
+        }
+        #submitHighscoreBtn {
+            width: 100%;
+            padding: 12px;
+            background: rgba(0, 255, 204, 0.1);
+            border: 2px solid #00ffcc;
+            color: #00ffcc;
+            border-radius: 6px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        #submitHighscoreBtn:hover {
+            background: #00ffcc;
+            color: #0a0a1a;
+            box-shadow: 0 0 15px #00ffcc;
+        }
+
+        /* Styling für das Hauptmenü-Leaderboard */
+        #leaderboardOverlay {
+            display: none; /* Wird per JS gesteuert */
+            position: absolute;
+            top: 55%; /* Leicht nach unten verschoben, um HUNTERZ nicht zu verdecken */
+            right: 40px; /* Weiter nach rechts gerückt am PC */
+            transform: translateY(-50%);
+            background: rgba(10, 10, 26, 0.9);
+            border: 2px solid #00ffcc;
+            box-shadow: 0 0 20px rgba(0, 255, 204, 0.2);
+            padding: 20px;
+            border-radius: 12px;
+            width: 320px;
+            max-height: 75vh;
+            z-index: 5;
+        }
+
+        #leaderboardOverlay h3 {
+            color: #00ffcc;
+            font-size: 18px;
+            margin-bottom: 15px;
+            text-shadow: 0 0 10px rgba(0, 255, 204, 0.4);
+            text-align: center;
+        }
+
+        .table-responsive {
+            overflow-y: auto;
+            max-height: 55vh;
+            padding-right: 3px;
+        }
+
+        /* Scrollbar für die Tabelle verschönern */
+        .table-responsive::-webkit-scrollbar {
+            width: 4px;
+        }
+        .table-responsive::-webkit-scrollbar-thumb {
+            background: #00ffcc;
+            border-radius: 4px;
+        }
+
+        .leaderboard-table {
+            width: 100%;
+            border-collapse: collapse;
+            color: #ffffff;
+            font-size: 14px;
+        }
+
+        .leaderboard-table th {
+            color: #00ffcc;
+            border-bottom: 1px solid rgba(0, 255, 204, 0.3);
+            padding: 8px 4px;
+            text-align: left;
+            font-size: 12px;
+        }
+
+        .leaderboard-table td {
+            padding: 8px 4px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        /* Die Top 3 bekommen ein schickes Highlight */
+        .leaderboard-table tr:nth-child(1) td { color: #ffd700; font-weight: bold; }
+        .leaderboard-table tr:nth-child(2) td { color: #c0c0c0; }
+        .leaderboard-table tr:nth-child(3) td { color: #cd7f32; }
+
+        /* Medienabfrage für Handys */
+        @media (max-width: 768px) {
+            #leaderboardOverlay {
+                top: auto;
+                bottom: 15px; 
+                right: 50%;
+                transform: translateX(50%);
+                width: 92%;
+                max-width: 340px;
+                max-height: 32vh; 
+                padding: 10px 15px; 
+            }
+            #leaderboardOverlay h3 {
+                font-size: 15px; 
+                margin-bottom: 8px;
+            }
+            .table-responsive {
+                max-height: 22vh; 
+            }
+            .leaderboard-table {
+                font-size: 12px; 
+            }
+            .leaderboard-table th {
+                padding: 5px 4px;
+            }
+            .leaderboard-table td {
+                padding: 5px 4px; 
+            }
+        }
     </style>
+
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
 </head>
 <body>
+
     <canvas id="gameCanvas"></canvas>
+
+    <!-- Das Highscore Eingabe-Fenster (Game Over) -->
+    <div id="highscoreOverlay" style="display: none;">
+    <h3>NEW RECORD!</h3>
+    <!-- Die Werte direkt im Popup -->
+    <div id="scoreDisplay" style="color: #fff; margin-bottom: 15px; font-size: 16px;">
+        <p>Score: <span id="valScore" style="color: #00ffcc;">0</span></p>
+        <p>Level: <span id="valLevel" style="color: #00ffcc;">1</span></p>
+        <p>Time: <span id="valTime" style="color: #00ffcc;">0:00</span></p>
+    </div>
+    
+    <p style="font-size: 12px; margin-bottom: 10px;">Enter your name to save:</p>
+    <input type="text" id="playerNameInput" placeholder="Name (max 15)" maxlength="15">
+    <button id="submitHighscoreBtn">Submit Score</button>
+</div>
+
+    <!-- Das globale Leaderboard (Hauptmenü) -->
+    <div id="leaderboardOverlay">
+        <h3>🏆 GLOBAL TOP 10</h3>
+        <div class="table-responsive">
+            <table class="leaderboard-table">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Name</th>
+                        <th>Score</th>
+                        <th>Lvl</th>
+                        <th>Time</th>
+                    </tr>
+                </thead>
+                <tbody id="leaderboardRows">
+                    <!-- Hier haut das JavaScript die Zeilen rein -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+
     <script src="game.js"></script>
 </body>
 </html>
