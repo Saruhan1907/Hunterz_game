@@ -74,10 +74,20 @@ if (guestbookEntries) {
     
     // onSnapshot lauscht live auf Änderungen in der Datenbank
     onSnapshot(q, (snapshot) => {
-        guestbookEntries.innerHTML = ""; // Löscht die Mock-Einträge, sobald Daten da sind
+        guestbookEntries.innerHTML = ""; // Löscht alte Einträge/Platzhalter, sobald Daten da sind
         
         if (snapshot.empty) {
-            guestbookEntries.innerHTML = `<p class="text-white-50 text-center py-4" data-i18n="guestbook-no-entries">Noch keine Einträge vorhanden. Sei der Erste!</p>`;
+            // Passt jetzt exakt zum HTML-Platzhalter (Farbe & Struktur ohne Icon)
+            guestbookEntries.innerHTML = `
+                <div class="text-center py-4">
+                    <p class="mb-0 small" style="color: rgba(255, 255, 255, 0.6);" data-i18n="guestbook-no-entries">Noch keine Einträge vorhanden. Sei der Erste!</p>
+                </div>
+            `;
+            
+            // Falls deine Übersetzungsfunktion auf der Seite existiert, rufen wir sie hier auf:
+            if (typeof updateContent === 'function') {
+                updateContent();
+            }
             return;
         }
         

@@ -160,7 +160,7 @@
                         </div>
                     </div>
 
-                    <!-- Rechte Spalte: Letzte Feedbacks (Mock-Einträge) -->
+                    <!-- Rechte Spalte: Letzte Feedbacks (Dynamisch aus Firebase) -->
                     <div class="col-md-7">
                         <div class="hover-card p-4 rounded-3 h-100" style="background: rgba(255,255,255,0.05);">
                             <div class="d-flex align-items-center gap-2 mb-4">
@@ -171,22 +171,9 @@
                             <!-- Container für die Einträge -->
                             <div id="guestbookEntries" class="d-flex flex-column gap-3" style="max-height: 380px; overflow-y: auto; padding-right: 5px;">
                                 
-                                <!-- Mock-Eintrag 1 -->
-                                <div class="p-3 rounded border border-secondary" style="background: rgba(255,255,255,0.02);">
-                                    <div class="d-flex justify-content-between align-items-center mb-2">
-                                        <strong class="text-accent">CyberCoder99</strong>
-                                        <span class="text-muted small">16.07.2026</span>
-                                    </div>
-                                    <p class="mb-0 small text-light">Mega Design! Die API-Spielwiese läuft extrem flüssig und das dunkle Cyber-Thema brennt nicht in den Augen. Weiter so!</p>
-                                </div>
-
-                                <!-- Mock-Eintrag 2 -->
-                                <div class="p-3 rounded border border-secondary" style="background: rgba(255,255,255,0.02);">
-                                    <div class="d-flex justify-content-between align-items-center mb-2">
-                                        <strong class="text-accent">Sarah_Dev</strong>
-                                        <span class="text-muted small">15.07.2026</span>
-                                    </div>
-                                    <p class="mb-0 small text-light">Das Hunterz-Spiel macht süchtig, verdammt! Richtig coole Portfolio-Website, bro. 🔥</p>
+                                <!-- Platzhalter / Ladestatus (Ohne extra Icon und in dezentem Grau) -->
+                                <div class="text-center py-4">
+                                    <p class="mb-0 small" style="color: rgba(255, 255, 255, 0.6);" data-i18n="guestbook-no-entries">Noch keine Einträge vorhanden. Sei der Erste!</p>
                                 </div>
 
                             </div>
