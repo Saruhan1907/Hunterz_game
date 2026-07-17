@@ -148,15 +148,11 @@
                             
                             <form id="guestbookForm" onsubmit="event.preventDefault();">
                                 <div class="mb-3">
-                                    <!-- Label ist jetzt text-white statt text-accent -->
                                     <label for="gbName" class="form-label text-white small fw-bold" data-i18n="guestbook-name-label">Dein Name</label>
-                                    <!-- Input mit sauberem data-i18n-placeholder -->
                                     <input type="text" class="form-control bg-transparent text-white border-secondary" id="gbName" required placeholder="Name..." data-i18n-placeholder="guestbook-name-placeholder">
                                 </div>
                                 <div class="mb-3">
-                                    <!-- Label ist jetzt text-white statt text-accent -->
                                     <label for="gbMessage" class="form-label text-white small fw-bold" data-i18n="guestbook-msg-label">Deine Nachricht</label>
-                                    <!-- Textarea mit sauberem data-i18n-placeholder -->
                                     <textarea class="form-control bg-transparent text-white border-secondary" id="gbMessage" rows="5" required placeholder="Schreib etwas Nettes..." data-i18n-placeholder="guestbook-msg-placeholder"></textarea>
                                 </div>
                                 <button type="submit" class="btn btn-neon w-100" data-i18n="guestbook-submit-btn">Eintragen</button>
@@ -198,6 +194,18 @@
                     </div>
 
                 </div> <!-- row g-4 -->
+
+                <!-- Socials Section -->
+                <div class="text-center mt-5 mb-4">
+                    <p class="socials-title mb-3" data-i18n="social-title">Folge mir auf meinen Kanälen:</p>
+                    <div class="d-flex justify-content-center gap-4">
+                        <a href="https://github.com/Saruhan1907" class="social-link" target="_blank"><i class="bi bi-github"></i></a>
+                        <a href="https://www.linkedin.com/in/zafer-chatzi-moumin-796145363/" class="social-link" target="_blank"><i class="bi bi-linkedin"></i></a>
+                        <a href="https://www.facebook.com/zafer.haci/" class="social-link" target="_blank"><i class="bi bi-facebook"></i></a>
+                        <a href="https://instagram.com/zafer_haci/" class="social-link" target="_blank"><i class="bi bi-instagram"></i></a>
+                    </div>
+                </div>
+
             </div> <!-- col-lg-10 -->
         </div> <!-- row justify-content-center -->
     </main>

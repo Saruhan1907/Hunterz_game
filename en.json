@@ -50,6 +50,8 @@
     "intro-feat-qr": "Instantly create scannable QR codes from text.",
     "intro-feat-pets": "Fetch cute and random dog or cat pictures.",
     "playground-title": "API Playground",
+    "playground-facts-title": "Useless Facts",
+    "playground-facts-btn": "New Fact",
     "home-main-title": "Home",
     "menu-guestbook": "Guestbook",
     "guestbook-main-title": "Guestbook",

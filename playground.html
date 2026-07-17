@@ -117,6 +117,7 @@
         </div> <!-- Schließt container -->
     </nav>
 
+    <!-- Hauptinhalt -->
     <main class="container py-5">
         
         <!-- Haupttitel (Mit dem neuen Bootstrap-Icon!) -->
@@ -195,26 +196,30 @@
                 <!-- Erste Reihe (Wetter & Unnützes Wissen) -->
                 <div class="row">
                     
-                    <!-- Wetter Box (Kompakt) -->
+                    <!-- Wetter Box (Kompakt & angepasst mit i18n-Label) -->
                     <div class="col-md-6 mb-4" id="weather-section">
-                        <div class="hover-card p-4 rounded-3" style="background: rgba(255,255,255,0.05);">
+                        <div class="hover-card p-4 rounded-3" style="background: rgba(255,255,255,0.05); min-height: 200px; display: flex; flex-direction: column; justify-content: start;">
                             <div class="d-flex align-items-center gap-2 mb-3">
                                 <i class="bi bi-cloud-sun text-accent fs-4"></i>
                                 <h3 class="text-accent m-0" data-i18n="weather-title">Wetter in Herzogenaurach</h3>
                             </div>
-                            <p class="mb-0" style="color: #fff;">Temperatur: <span id="weather-temp">--.-</span>°C</p>
+                            <p class="mb-0" style="color: #fff;">
+                                <span data-i18n="weather-label">Temperatur:</span> <span id="weather-temp">--.-</span>°C
+                            </p>
                         </div>
                     </div>
 
-                    <!-- Unnützes Wissen Box (Kompakt) -->
+                    <!-- Unnützes Wissen Box (Kompakt, angepasst & i18n korrigiert) -->
                     <div class="col-md-6 mb-4" id="facts-section">
-                        <div class="hover-card p-4 rounded-3" style="background: rgba(255,255,255,0.05);">
-                            <div class="d-flex align-items-center gap-2 mb-3">
-                                <i class="bi bi-lightbulb text-accent fs-4"></i>
-                                <h3 class="text-accent m-0" data-i18n="facts-title">Unnützes Wissen</h3>
+                        <div class="hover-card p-4 rounded-3" style="background: rgba(255,255,255,0.05); min-height: 200px; display: flex; flex-direction: column; justify-content: space-between;">
+                            <div>
+                                <div class="d-flex align-items-center gap-2 mb-3">
+                                    <i class="bi bi-lightbulb text-accent fs-4"></i>
+                                    <h3 class="text-accent m-0" data-i18n="playground-facts-title">Unnützes Wissen</h3>
+                                </div>
+                                <p id="fact-result" class="mb-3" style="color: #fff; min-height: 48px;">Lade Fakt...</p>
                             </div>
-                            <p id="fact-result" class="mb-3" style="color: #fff; min-height: 48px;">Lade Fakt...</p>
-                            <button onclick="fetchFact()" class="btn btn-neon w-100" data-i18n="facts-btn">Neuer Fakt</button>
+                            <button onclick="fetchFact()" class="btn btn-neon w-100" data-i18n="playground-facts-btn">Neuer Fakt</button>
                         </div>
                     </div>
 
@@ -225,7 +230,7 @@
                     
                     <!-- QR-Code Generator Box -->
                     <div class="col-md-6 mb-4" id="qr-section">
-                        <div class="hover-card p-4 rounded-3" style="background: rgba(255,255,255,0.05); min-height: 380px; display: flex; flex-direction: column; justify-content: space-between;">
+                        <div class="hover-card p-4 rounded-3" style="background: rgba(255,255,255,0.05); min-height: 440px; display: flex; flex-direction: column; justify-content: space-between;">
                             <div>
                                 <div class="d-flex align-items-center gap-2 mb-3">
                                     <i class="bi bi-qr-code text-accent fs-4"></i>
@@ -247,7 +252,7 @@
 
                     <!-- Tierische Gefährten Box -->
                     <div class="col-md-6 mb-4" id="pet-section">
-                        <div class="hover-card p-4 rounded-3" style="background: rgba(255,255,255,0.05); min-height: 380px; display: flex; flex-direction: column; justify-content: space-between;">
+                        <div class="hover-card p-4 rounded-3" style="background: rgba(255,255,255,0.05); min-height: 440px; display: flex; flex-direction: column; justify-content: space-between;">
                             <div>
                                 <div class="d-flex align-items-center gap-2 mb-3">
                                     <i class="bi bi-images text-accent fs-4"></i>
@@ -265,6 +270,17 @@
                         </div>
                     </div>
 
+                </div>
+
+                <!-- Socials Section -->
+                <div class="text-center mt-5 mb-4">
+                    <p class="socials-title mb-3" data-i18n="social-title">Folge mir auf meinen Kanälen:</p>
+                    <div class="d-flex justify-content-center gap-4">
+                        <a href="https://github.com/Saruhan1907" class="social-link" target="_blank"><i class="bi bi-github"></i></a>
+                        <a href="https://www.linkedin.com/in/zafer-chatzi-moumin-796145363/" class="social-link" target="_blank"><i class="bi bi-linkedin"></i></a>
+                        <a href="https://www.facebook.com/zafer.haci/" class="social-link" target="_blank"><i class="bi bi-facebook"></i></a>
+                        <a href="https://instagram.com/zafer_haci/" class="social-link" target="_blank"><i class="bi bi-instagram"></i></a>
+                    </div>
                 </div>
 
             </div> <!-- Schließt col-lg-10 -->
