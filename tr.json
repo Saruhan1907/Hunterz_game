@@ -59,5 +59,6 @@
     "guestbook-msg-label": "Mesajınız",
     "guestbook-msg-placeholder": "Güzel bir şeyler yazın...",
     "guestbook-submit-btn": "Gönder",
-    "guestbook-entries-title": "Son Yorumlar"
+    "guestbook-entries-title": "Son Yorumlar",
+    "guestbook-no-entries": "Henüz kayıt bulunmuyor. İlk yazan sen ol!"
 }

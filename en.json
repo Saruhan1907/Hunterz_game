@@ -59,5 +59,6 @@
     "guestbook-msg-label": "Your Message",
     "guestbook-msg-placeholder": "Write something nice...",
     "guestbook-submit-btn": "Submit",
-    "guestbook-entries-title": "Recent Entries"
+    "guestbook-entries-title": "Recent Entries",
+    "guestbook-no-entries": "No entries yet. Be the first!"
 }
