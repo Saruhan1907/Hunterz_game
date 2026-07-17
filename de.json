@@ -64,5 +64,8 @@
     "guestbook-entries-title": "Letzte Einträge",
     "guestbook-no-entries": "Noch keine Einträge vorhanden. Sei der Erste!",
     "guestbook-intro-title": "Feedback & Grüße",
-    "guestbook-intro-text": "Schön, dass du da bist! Hinterlasse mir gerne liebe Grüße und vor allem dein Feedback zu dieser Website, dem Spiel und allen anderen Projekten hier. Ich freue mich über jeden Eintrag!"
+    "guestbook-intro-text": "Schön, dass du da bist! Hinterlasse mir gerne liebe Grüße und vor allem dein Feedback zu dieser Website, dem Spiel und allen anderen Projekten hier. Ich freue mich über jeden Eintrag!",
+    "intro-feat-github": "Echtzeit-Feed meiner Code-Aktivitäten.",
+    "playground-github-title": "GitHub Live-Aktivität",
+    "playground-github-loading": "Systemprotokolle werden geladen..."
 }

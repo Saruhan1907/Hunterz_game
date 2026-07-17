@@ -132,7 +132,7 @@
         <div class="row justify-content-center">
             <div class="col-lg-10">
 
-                <!-- Einleitungs- & Info-Box -->
+                <!-- Einleitungs- & Info-Box (Jetzt mit strahlend weißen Beschreibungen!) -->
                 <div class="hover-card p-4 rounded-3 mb-4" style="background: rgba(255,255,255,0.05);">
                     <div class="d-flex align-items-center gap-2 mb-3">
                         <i class="bi bi-terminal text-accent fs-3"></i>
@@ -141,51 +141,63 @@
                     <p class="mb-4" style="color: #fff;" data-i18n="intro-desc">
                         Auf dieser Seite experimentiere ich mit verschiedenen API-Verbindungen. Hier werden Daten in Echtzeit von externen Servern geladen, verarbeitet und dynamisch im modernen Cyber-Design dargestellt:
                     </p>
-                    <div class="row g-3">
+                    <div class="row g-3 justify-content-center">
                         <!-- Feature 1: Wetter -->
-                        <div class="col-md-6 col-lg-3">
+                        <div class="col-md-4 col-lg-2">
                             <a href="#weather-section" class="intro-link">
                                 <div class="d-flex align-items-start gap-2">
                                     <i class="bi bi-cloud-sun text-accent mt-1"></i>
                                     <div>
                                         <strong class="text-accent">Weather API</strong>
-                                        <p class="small mb-0" style="color: #fff;" data-i18n="intro-feat-weather">Echtzeit-Wetterdaten aus der Region.</p>
+                                        <p class="small mb-0 text-white" style="font-size: 0.75rem;" data-i18n="intro-feat-weather">Echtzeit-Wetterdaten aus der Region.</p>
                                     </div>
                                 </div>
                             </a>
                         </div>
                         <!-- Feature 2: Fun Facts -->
-                        <div class="col-md-6 col-lg-3">
+                        <div class="col-md-4 col-lg-2">
                             <a href="#facts-section" class="intro-link">
                                 <div class="d-flex align-items-start gap-2">
                                     <i class="bi bi-lightbulb text-accent mt-1"></i>
                                     <div>
                                         <strong class="text-accent">Facts API</strong>
-                                        <p class="small mb-0" style="color: #fff;" data-i18n="intro-feat-facts">Skurrile, dreisprachige Fun-Facts.</p>
+                                        <p class="small mb-0 text-white" style="font-size: 0.75rem;" data-i18n="intro-feat-facts">Skurrile, dreisprachige Fun-Facts.</p>
                                     </div>
                                 </div>
                             </a>
                         </div>
                         <!-- Feature 3: QR Generator -->
-                        <div class="col-md-6 col-lg-3">
+                        <div class="col-md-4 col-lg-2">
                             <a href="#qr-section" class="intro-link">
                                 <div class="d-flex align-items-start gap-2">
                                     <i class="bi bi-qr-code text-accent mt-1"></i>
                                     <div>
                                         <strong class="text-accent">QR Generator</strong>
-                                        <p class="small mb-0" style="color: #fff;" data-i18n="intro-feat-qr">Generiert QR-Codes direkt im Browser.</p>
+                                        <p class="small mb-0 text-white" style="font-size: 0.75rem;" data-i18n="intro-feat-qr">Generiert QR-Codes direkt im Browser.</p>
                                     </div>
                                 </div>
                             </a>
                         </div>
                         <!-- Feature 4: Pet Image -->
-                        <div class="col-md-6 col-lg-3">
+                        <div class="col-md-4 col-lg-2">
                             <a href="#pet-section" class="intro-link">
                                 <div class="d-flex align-items-start gap-2">
                                     <i class="bi bi-images text-accent mt-1"></i>
                                     <div>
                                         <strong class="text-accent">Pet API</strong>
-                                        <p class="small mb-0" style="color: #fff;" data-i18n="intro-feat-pets">Zufällige Hunde- und Katzenbilder.</p>
+                                        <p class="small mb-0 text-white" style="font-size: 0.75rem;" data-i18n="intro-feat-pets">Zufällige Hunde- und Katzenbilder.</p>
+                                    </div>
+                                </div>
+                            </a>
+                        </div>
+                        <!-- Feature 5: GitHub Live -->
+                        <div class="col-md-4 col-lg-2">
+                            <a href="#github-section" class="intro-link">
+                                <div class="d-flex align-items-start gap-2">
+                                    <i class="bi bi-github text-accent mt-1"></i>
+                                    <div>
+                                        <strong class="text-accent">GitHub API</strong>
+                                        <p class="small mb-0 text-white" style="font-size: 0.75rem;" data-i18n="intro-feat-github">Echtzeit-Feed meiner Code-Aktivitäten.</p>
                                     </div>
                                 </div>
                             </a>
@@ -196,7 +208,7 @@
                 <!-- Erste Reihe (Wetter & Unnützes Wissen) -->
                 <div class="row">
                     
-                    <!-- Wetter Box (Kompakt & angepasst mit i18n-Label) -->
+                    <!-- Wetter Box -->
                     <div class="col-md-6 mb-4" id="weather-section">
                         <div class="hover-card p-4 rounded-3" style="background: rgba(255,255,255,0.05); min-height: 200px; display: flex; flex-direction: column; justify-content: start;">
                             <div class="d-flex align-items-center gap-2 mb-3">
@@ -209,7 +221,7 @@
                         </div>
                     </div>
 
-                    <!-- Unnützes Wissen Box (Kompakt, angepasst & i18n korrigiert) -->
+                    <!-- Unnützes Wissen Box -->
                     <div class="col-md-6 mb-4" id="facts-section">
                         <div class="hover-card p-4 rounded-3" style="background: rgba(255,255,255,0.05); min-height: 200px; display: flex; flex-direction: column; justify-content: space-between;">
                             <div>
@@ -270,6 +282,28 @@
                         </div>
                     </div>
 
+                </div>
+
+                <!-- Dritte Reihe: GitHub Live-Aktivität (Jetzt farblich perfekt angepasst) -->
+                <div class="row">
+                    <div class="col-12 mb-4" id="github-section">
+                        <div class="hover-card p-4 rounded-3" style="background: rgba(255,255,255,0.05);">
+                            <div class="d-flex align-items-center gap-2 mb-3">
+                                <i class="bi bi-github text-accent fs-4"></i>
+                                <h3 class="text-accent m-0" data-i18n="playground-github-title">GitHub Live-Aktivität</h3>
+                            </div>
+                            <!-- Terminal-Container für Commits -->
+                            <div id="github-feed" class="font-monospace p-3 rounded" style="background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); max-height: 280px; overflow-y: auto;">
+                                
+                                <!-- OPTION A: In deiner Akzentfarbe (Mintgrün) -->
+                                <!-- <div class="text-accent" data-i18n="playground-github-loading">Systemprotokolle werden geladen...</div>-->
+                                
+                                <!-- OPTION B: Falls du doch das hellere Terminal-Grau willst, nimm stattdessen das hier: -->
+                                <div style="color: rgba(255, 255, 255, 0.4);" data-i18n="playground-github-loading">Systemprotokolle werden geladen...</div> 
+                                
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Socials Section -->

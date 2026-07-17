@@ -53,6 +53,10 @@ const facts = [
 
 let currentFactIndex = 0;
 
+// ==========================================
+// API PLAYGROUND LOGIC
+// ==========================================
+
 // 1. WETTER LADEN
 async function fetchWeather() {
     try {
@@ -145,9 +149,85 @@ async function fetchPetImage(type) {
     }
 }
 
+// 5. GITHUB LIVE-AKTIVITÄT LADEN (Version mit optimierter Lesbarkeit)
+async function fetchGitHubActivity() {
+    const feedEl = document.getElementById('github-feed');
+    if (!feedEl) return;
+
+    try {
+        const response = await fetch('https://api.github.com/users/Saruhan1907/events');
+        if (!response.ok) throw new Error(`HTTP-Status: ${response.status}`);
+        
+        const events = await response.json();
+        
+        if (!events || events.length === 0) {
+            feedEl.innerHTML = `<div style="color: rgba(255, 255, 255, 0.5);">[SYSTEM] Keine aktuellen Open-Source-Aktivitäten gefunden.</div>`;
+            return;
+        }
+
+        feedEl.innerHTML = ''; // Setzt den Lade-Text zurück
+
+        // Maximal die letzten 6 Aktivitäten anzeigen
+        const maxEvents = events.slice(0, 6);
+
+        maxEvents.forEach(event => {
+            const date = new Date(event.created_at);
+            const timestamp = date.toLocaleString('de-DE', { 
+                day: '2-digit', 
+                month: '2-digit', 
+                year: 'numeric', 
+                hour: '2-digit', 
+                minute: '2-digit' 
+            });
+
+            const repoName = event.repo.name;
+            let logMessage = `[SYSTEM] Event in ${repoName} registriert.`;
+
+            // Style-Anpassung: "text-muted" wurde durch helleres, lesbares Grau ersetzt
+            const lightGray = 'color: rgba(255, 255, 255, 0.6);';
+
+            switch (event.type) {
+                case 'PushEvent':
+                    const commitMsg = event.payload.commits && event.payload.commits[0] 
+                        ? event.payload.commits[0].message 
+                        : 'Code aktualisiert';
+                    logMessage = `<span class="text-accent">🚀 PUSHED:</span> "${commitMsg}" <span style="${lightGray}">-> ${repoName}</span>`;
+                    break;
+                case 'CreateEvent':
+                    const type = event.payload.ref_type;
+                    logMessage = `<span style="color: #ff9f43;">🛠️ CREATED:</span> ${type} <span style="${lightGray}">in ${repoName}</span>`;
+                    break;
+                case 'WatchEvent':
+                    logMessage = `<span style="color: #f1c40f;">⭐ STARRED:</span> Repository <span style="${lightGray}">${repoName}</span> favorisiert`;
+                    break;
+                case 'IssuesEvent':
+                    const action = event.payload.action;
+                    logMessage = `<span style="color: #ff6b6b;">📝 ISSUE ${action.toUpperCase()}:</span> "${event.payload.issue.title}" <span style="${lightGray}">in ${repoName}</span>`;
+                    break;
+                default:
+                    const cleanType = event.type.replace('Event', '').toUpperCase();
+                    logMessage = `<span class="text-white-50">⚡ ACTIVITY [${cleanType}]:</span> <span style="${lightGray}">${repoName}</span>`;
+                    break;
+            }
+
+            // Neue Zeile im Terminal generieren
+            const logLine = document.createElement('div');
+            logLine.className = 'mb-2 text-white';
+            logLine.style.fontSize = '0.9rem';
+            logLine.innerHTML = `<span style="color: rgba(255, 255, 255, 0.45);">[${timestamp}]</span> ${logMessage}`;
+            feedEl.appendChild(logLine);
+        });
+
+    } catch (error) {
+        console.error("GitHub-API Fehler:", error);
+        feedEl.innerHTML = `<div class="text-danger">[FEHLER] Verbindung zum GitHub-Mainframe fehlgeschlagen. Eventuell Ratenbegrenzung aktiv.</div>`;
+    }
+}
+
 // INITIALISIERUNG
 document.addEventListener('DOMContentLoaded', () => {
     fetchWeather();
+    fetchGitHubActivity(); // Startet den GitHub-Feed direkt beim Seitenaufruf!
     
     currentFactIndex = Math.floor(Math.random() * facts.length);
     showFact();
