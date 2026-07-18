@@ -40,44 +40,16 @@
                     </button>
                     <!-- Hier setzen wir ebenfalls min-width: 165px; damit beide exakt übereinstimmen -->
                     <ul class="dropdown-menu dropdown-menu-dark" style="min-width: 165px;">
-                        <li>
-                            <a class="dropdown-item d-flex align-items-center" href="index.html">
-                                <i class="bi bi-house-door text-accent me-2"></i>
-                                <span data-i18n="menu-home">Home</span>
-                            </a>
-                        </li>
+                        <li><a class="dropdown-item d-flex align-items-center" href="index.html"><i class="bi bi-house-door text-accent me-2"></i> <span data-i18n="menu-home">Home</span></a></li>
                         <li><hr class="dropdown-divider"></li>
-                        <li>
-                            <a class="dropdown-item d-flex align-items-center" href="game/index.html">
-                                <i class="bi bi-controller text-accent me-2"></i>
-                                <span data-i18n="menu-game">Game</span>
-                            </a>
-                        </li>
-                        <li>
-                            <a class="dropdown-item d-flex align-items-center" href="playground.html">
-                                <i class="bi bi-cpu text-accent me-2"></i>
-                                <span data-i18n="menu-playground">Playground</span>
-                            </a>
-                        </li>
-                        <li>
-                            <a class="dropdown-item d-flex align-items-center" href="guestbook.html">
-                                <i class="bi bi-journal-text text-accent me-2"></i>
-                                <span data-i18n="menu-guestbook">Gästebuch</span>
-                            </a>
-                        </li>
+                        <li><a class="dropdown-item d-flex align-items-center" href="game/index.html"><i class="bi bi-controller text-accent me-2"></i> <span data-i18n="menu-game">Game</span></a></li>
+                        <li><a class="dropdown-item d-flex align-items-center" href="dashboard.html"><i class="bi bi-graph-up text-accent me-2"></i> <span data-i18n="menu-dashboard">Dashboard</span></a></li>
                         <li><hr class="dropdown-divider"></li>
-                        <li>
-                            <a class="dropdown-item d-flex align-items-center" href="kontakt.html">
-                                <i class="bi bi-envelope-paper text-accent me-2"></i>
-                                <span data-i18n="menu-contact">Contact</span>
-                            </a>
-                        </li>
-                        <li>
-                            <a class="dropdown-item d-flex align-items-center" href="impressum.html">
-                                <i class="bi bi-shield-shaded text-accent me-2"></i>
-                                <span data-i18n="menu-impressum">Impressum</span>
-                            </a>
-                        </li>
+                        <li><a class="dropdown-item d-flex align-items-center" href="playground.html"><i class="bi bi-cpu text-accent me-2"></i> <span data-i18n="menu-playground">Playground</span></a></li>
+                        <li><a class="dropdown-item d-flex align-items-center" href="guestbook.html"><i class="bi bi-journal-text text-accent me-2"></i> <span data-i18n="menu-guestbook">Gästebuch</span></a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item d-flex align-items-center" href="kontakt.html"><i class="bi bi-envelope-paper text-accent me-2"></i> <span data-i18n="menu-contact">Contact</span></a></li>
+                        <li><a class="dropdown-item d-flex align-items-center" href="impressum.html"><i class="bi bi-shield-shaded text-accent me-2"></i> <span data-i18n="menu-impressum">Impressum</span></a></li>
                     </ul>
                 </div>
 
@@ -191,7 +163,7 @@
                             
                             <!-- Alles ab hier bleibt genau so, wie es auf deinem Screenshot war -->
                             <div class="mt-4">
-                                <h5 class="text-light mb-3">Web, App & Backend</h5>
+                                <h5 class="text-light mb-3" data-i18n="skills-web">Web, App & Backend</h5>
                                 <div class="d-flex flex-wrap gap-2 mb-4">
                                     <span class="badge bg-dark border border-accent text-accent">HTML5</span>
                                     <span class="badge bg-dark border border-accent text-accent">CSS3</span>
@@ -203,23 +175,26 @@
                                     <span class="badge bg-dark border border-accent text-accent">Bootstrap</span>
                                 </div>
 
-                                <h5 class="text-light mb-3">Entwicklung & Infrastruktur</h5>
+                                <h5 class="text-light mb-3" data-i18n="skills-infra">Entwicklung & Infrastruktur</h5>
                                 <div class="d-flex flex-wrap gap-2 mb-4">
                                     <span class="badge bg-dark border border-accent text-accent">Python</span>
                                     <span class="badge bg-dark border border-accent text-accent">Java</span>
                                     <span class="badge bg-dark border border-accent text-accent">C#</span>
+                                    <span class="badge bg-dark border border-accent text-accent">PHP</span> <!-- HIER HINZUGEFÜGT -->
                                     <span class="badge bg-dark border border-accent text-accent">SQL & NoSQL</span>
                                     <span class="badge bg-dark border border-accent text-accent">Git</span>
                                     <span class="badge bg-dark border border-accent text-accent">Docker</span>
-                                    <span class="badge bg-dark border border-accent text-accent">Virtualisierung</span>
+                                    <span class="badge bg-dark border border-accent text-accent">Virtualisation</span>
                                 </div>
 
-                                <h5 class="text-light mb-3">Workflow, KI & Kreatives</h5>
+                                <h5 class="text-light mb-3" data-i18n="skills-workflow">Workflow, KI & Kreatives</h5>
                                 <div class="d-flex flex-wrap gap-2">
-                                    <span class="badge bg-dark border border-accent text-accent">Agiles PM / Jira</span>
+                                    <span class="badge bg-dark border border-accent text-accent">VS Code</span>
+                                    <span class="badge bg-dark border border-accent text-accent">Debugging</span> <!-- HIER NEU -->
+                                    <span class="badge bg-dark border border-accent text-accent">Agile PM / Jira</span>
                                     <span class="badge bg-dark border border-accent text-accent">KI-Tools / AI Literacy</span>
                                     <span class="badge bg-dark border border-accent text-accent">Canva</span>
-                                    <span class="badge bg-dark border border-accent text-accent">3D-Druck & Slicer</span>
+                                    <span class="badge bg-dark border border-accent text-accent">3D-Print & Slicer</span>
                                     <span class="badge bg-dark border border-accent text-accent">Dokumentation</span>
                                 </div>
                             </div>
@@ -271,6 +246,12 @@
             <p data-i18n="footer-text">&copy; 2026 devz.solutions | Built with Passion.</p>
         </div>
     </footer>
-    <script src="translate.js"></script>
+    <!-- i18next Library -->
+    <script src="https://unpkg.com/i18next@latest/dist/umd/i18next.min.js"></script>
+    <!-- i18next Backend (zum Laden der JSON-Dateien) -->
+    <script src="https://unpkg.com/i18next-http-backend@latest/dist/umd/i18nextHttpBackend.min.js"></script>
+
+    <!-- Danach erst deine eigenen Skripte in der richtigen Reihenfolge: -->
+    <script src="../translate.js"></script>
 </body>
 </html>

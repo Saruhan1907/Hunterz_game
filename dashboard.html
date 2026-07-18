@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hunterz | Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+
+    <!-- Navigationsleiste -->
+    <nav class="navbar navbar-dark sticky-top">
+        <div class="container d-flex justify-content-between align-items-center">
+            <a class="navbar-brand fw-bold" href="index.html">
+                <img src="DS_Logo.png" alt="Logo" style="height: 40px; margin-right: 10px;"> 
+                devz<span style="color:var(--accent)">.</span>solutions
+            </a>
+
+            <div class="d-flex gap-3 align-items-center">
+                <!-- Menü Dropdown -->
+                <div class="dropdown">
+                    <button class="btn btn-outline-light dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" style="min-width: 165px;">
+                        <span data-i18n="menu-btn-text">Menü</span>
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-dark" style="min-width: 165px;">
+                        <li><a class="dropdown-item d-flex align-items-center" href="index.html"><i class="bi bi-house-door text-accent me-2"></i> <span data-i18n="menu-home">Home</span></a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item d-flex align-items-center" href="game/index.html"><i class="bi bi-controller text-accent me-2"></i> <span data-i18n="menu-game">Game</span></a></li>
+                        <li><a class="dropdown-item d-flex align-items-center" href="dashboard.html"><i class="bi bi-graph-up text-accent me-2"></i> <span data-i18n="menu-dashboard">Dashboard</span></a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item d-flex align-items-center" href="playground.html"><i class="bi bi-cpu text-accent me-2"></i> <span data-i18n="menu-playground">Playground</span></a></li>
+                        <li><a class="dropdown-item d-flex align-items-center" href="guestbook.html"><i class="bi bi-journal-text text-accent me-2"></i> <span data-i18n="menu-guestbook">Gästebuch</span></a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item d-flex align-items-center" href="kontakt.html"><i class="bi bi-envelope-paper text-accent me-2"></i> <span data-i18n="menu-contact">Contact</span></a></li>
+                        <li><a class="dropdown-item d-flex align-items-center" href="impressum.html"><i class="bi bi-shield-shaded text-accent me-2"></i> <span data-i18n="menu-impressum">Impressum</span></a></li>
+                    </ul>
+                </div>
+
+                <!-- Sprachauswahl -->
+                <div class="dropdown">
+                    <button class="btn btn-outline-light dropdown-toggle d-flex align-items-center justify-content-between gap-2" type="button" id="languageBtn" data-bs-toggle="dropdown" aria-expanded="false" style="min-width: 100px;">
+                        <div class="d-flex align-items-center gap-2">
+                            <img src="https://flagcdn.com/w20/de.png" alt="DE" style="width: 20px; height: auto; border-radius: 2px;"> 
+                            <span>DE</span>
+                        </div>
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-dark dropdown-menu-end" id="languageMenu" style="min-width: 100px;">
+                        <li><button class="dropdown-item d-flex align-items-center gap-2" type="button" data-lang="de"><img src="https://flagcdn.com/w20/de.png" alt="DE" style="width: 20px; height: auto; border-radius: 2px;"> DE</button></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><button class="dropdown-item d-flex align-items-center gap-2" type="button" data-lang="en"><img src="https://flagcdn.com/w20/gb.png" alt="EN" style="width: 20px; height: auto; border-radius: 2px;"> EN</button></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><button class="dropdown-item d-flex align-items-center gap-2" type="button" data-lang="tr"><img src="https://flagcdn.com/w20/tr.png" alt="TR" style="width: 20px; height: auto; border-radius: 2px;"> TR</button></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <main class="container py-5">
+        <!-- Lade-Spinner -->
+        <div id="loading-spinner" class="text-center py-5">
+            <div class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem;">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <p class="mt-3 text-white" data-i18n="dashboard.loading">Daten werden geladen...</p>
+        </div>
+
+        <!-- Dashboard Inhalt -->
+        <div id="dashboard-content" style="display: none;">
+            <div class="text-center mb-5">
+                <h1 class="display-4 fw-bold text-white d-flex align-items-center justify-content-center gap-3">
+                    <i class="bi bi-graph-up text-accent"></i>
+                    <span data-i18n="dashboard.title">Game Analytics</span>
+                </h1>
+            </div>
+
+            <!-- KPI Cards -->
+            <div class="row mb-4">
+                <div class="col-md-6 mb-3">
+                    <div class="hover-card p-4 rounded-3 text-center">
+                        <h5 class="text-accent" data-i18n="dashboard.kpi-time">Gesamte Spielzeit</h5>
+                        <h2 id="total-time" class="text-white">0 min</h2>
+                    </div>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <div class="hover-card p-4 rounded-3 text-center">
+                        <h5 class="text-accent" data-i18n="dashboard.kpi-runs">Anzahl der Runs</h5>
+                        <h2 id="total-runs" class="text-white">0</h2>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Chart Bereich -->
+            <div class="row mb-4">
+                <div class="col-12">
+                    <div class="hover-card p-4 rounded-3">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h2 class="text-accent" data-i18n="dashboard.chart-title">Highscore-Entwicklung</h2>
+                            
+                            <!-- Custom Dropdown -->
+                            <div class="dropdown">
+                                <button class="btn btn-box-dropdown dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" id="chartLabel" data-i18n="dashboard.chart-score">
+                                    Nach Score
+                                </button>
+                                <ul class="dropdown-menu box-dropdown-menu">
+                                    <li><a class="dropdown-item" href="#" onclick="changeMetric('score', 'Nach Score')" data-i18n="dashboard.chart-score">Nach Score</a></li>
+                                    <li><hr class="dropdown-divider"></li>
+                                    <li><a class="dropdown-item" href="#" onclick="changeMetric('level', 'Nach Level')" data-i18n="dashboard.chart-level">Nach Level</a></li>
+                                    <li><hr class="dropdown-divider"></li>
+                                    <li><a class="dropdown-item" href="#" onclick="changeMetric('time', 'Nach Zeit')" data-i18n="dashboard.chart-time">Nach Zeit</a></li>
+                                </ul>
+                            </div>
+                        </div>
+                        <canvas id="scoreChart" style="max-height: 400px;"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Table Card -->
+            <div class="table-card hover-card">
+                <table class="table table-dark table-hover">
+                    <thead>
+                        <tr>
+                            <th data-i18n="dashboard.rank">#</th>
+                            <th data-i18n="dashboard.name">Name</th>
+                            <th style="cursor:pointer" onclick="sortData('score')" data-i18n="dashboard.score">Score ↕</th>
+                            <th style="cursor:pointer" onclick="sortData('level')" data-i18n="dashboard.level">Level ↕</th>
+                            <th style="cursor:pointer" onclick="sortData('time')" data-i18n="dashboard.time">Zeit ↕</th>
+                            <th data-i18n="dashboard.date">Datum</th>
+                        </tr>
+                    </thead>
+                    <tbody id="scoreTableBody">
+                        <!-- Daten -->
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Socials Section -->
+            <div class="text-center mt-5 mb-5">
+                <p class="socials-title mb-3" data-i18n="social-title">Folge mir auf meinen Kanälen:</p>
+                <div class="d-flex justify-content-center gap-4">
+                    <a href="https://github.com/Saruhan1907" class="social-link" target="_blank"><i class="bi bi-github"></i></a>
+                    <a href="https://www.linkedin.com/in/zafer-chatzi-moumin-796145363/" class="social-link" target="_blank"><i class="bi bi-linkedin"></i></a>
+                    <a href="https://www.facebook.com/zafer.haci/" class="social-link" target="_blank"><i class="bi bi-facebook"></i></a>
+                    <a href="https://instagram.com/zafer_haci/" class="social-link" target="_blank"><i class="bi bi-instagram"></i></a>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <footer class="text-center text-muted">
+        <div class="container">
+            <img src="DS_Logo.png" alt="Logo" style="height: 50px; margin-bottom: 10px; opacity: 0.8;">
+            <p data-i18n="footer-text">&copy; 2026 devz.solutions | Built with Passion.</p>
+        </div>
+    </footer>
+    
+    <script src="translate.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script type="module" src="dashboard.js"></script>
+</body>
+</html>

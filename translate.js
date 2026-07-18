@@ -1,7 +1,13 @@
 /* ==========================================================================
    GLOBALES ÜBERSETZUNGSSKRIPT (translate.js)
    ========================================================================== */
+// Globale Variable, um die Übersetzungen zu speichern
+let currentTranslations = {};
 
+// Die Funktion, die dashboard.js benutzen wird
+window.t = function(key) {
+    return currentTranslations[key] || key; // Gibt Übersetzung zurück oder den Key, falls nicht gefunden
+};
 // Flaggen-HTML für den Sprach-Button
 const langFlags = {
     de: '<img src="https://flagcdn.com/w20/de.png" alt="DE" style="width: 20px; height: auto; border-radius: 2px;"> DE',
@@ -12,59 +18,40 @@ const langFlags = {
 // Hauptfunktion zum Laden und Setzen der Sprache
 async function updateLanguage(lang) {
     const path = `${lang}.json`; 
-    
     try {
         const response = await fetch(path);
+        if (!response.ok) throw new Error("Datei konnte nicht geladen werden");
         
-        if (!response.ok) {
-            throw new Error(`Datei ${path} konnte nicht geladen werden (Status: ${response.status})`);
-        }
+        currentTranslations = await response.json();
         
-        const translations = await response.json();
-        
-        // 1. Normale Text-Übersetzungen (Klassen mit data-i18n)
+        // DOM aktualisieren
         document.querySelectorAll('[data-i18n]').forEach(el => {
             const key = el.getAttribute('data-i18n');
-            if (translations[key]) {
-                el.textContent = translations[key];
-            }
+            if (currentTranslations[key]) el.textContent = currentTranslations[key];
         });
-
-        // 2. Platzhalter-Übersetzungen (für Inputs, Textareas in Kontakt & Gästebuch)
         document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
             const key = el.getAttribute('data-i18n-placeholder');
-            if (translations[key]) {
-                el.setAttribute('placeholder', translations[key]);
-            }
+            if (currentTranslations[key]) el.setAttribute('placeholder', currentTranslations[key]);
         });
 
-        // Speichere die gewählte Sprache im Browser
         localStorage.setItem('lang', lang);
-        
-        // Flaggen-Bild im Hauptbutton der Navbar austauschen
         const langBtn = document.getElementById('languageBtn');
-        if (langBtn) {
-            langBtn.innerHTML = langFlags[lang] || lang.toUpperCase();
-        }
-        
-        console.log("Sprache gewechselt zu:", lang);
+        if (langBtn) langBtn.innerHTML = langFlags[lang] || lang.toUpperCase();
+
+        // SIGNAL: Übersetzungen sind fertig!
+        window.dispatchEvent(new CustomEvent('translationsLoaded'));
         
     } catch (err) {
         console.error("DEBUG FEHLER:", err);
     }
 }
 
-// Initialisierung, wenn das DOM bereit ist
 window.addEventListener('DOMContentLoaded', () => {
-    // Event-Listener für die Dropdown-Items der Sprachauswahl registrieren
     document.querySelectorAll('#languageMenu .dropdown-item').forEach(item => {
         item.addEventListener('click', (e) => {
-            const selectedLang = e.currentTarget.getAttribute('data-lang');
-            updateLanguage(selectedLang);
+            updateLanguage(e.currentTarget.getAttribute('data-lang'));
         });
     });
-
-    // Gespeicherte Sprache laden (Standard: Deutsch)
     const savedLang = localStorage.getItem('lang') || 'de';
     updateLanguage(savedLang);
 });

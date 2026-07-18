@@ -4,12 +4,13 @@
 :root { 
     --accent: #00ffcc; 
     --bg: #0a0a1a; 
+    --card-bg: #151520;
     --subtext-color: #00ffcc; 
 }
 
 html {
     scroll-behavior: smooth;
-    scroll-padding-top: 100px; /* Verhindert, dass die fixierte Navbar Boxen verdeckt */
+    scroll-padding-top: 100px;
 }
 
 body { 
@@ -18,22 +19,19 @@ body {
     font-family: 'Segoe UI', sans-serif; 
 }
 
-/* Neue Utility-Klasse für deine Neon-Farbe */
 .text-accent {
-    color: var(--subtext-color) !important;            
+    color: var(--subtext-color) !important;          
 }
 
 /* ==========================================================================
    2. NAVBAR & NAVIGATION
    ========================================================================== */
-/* Navbar Glas-Effekt */
 .navbar { 
     background: rgba(10, 10, 26, 0.85); 
     backdrop-filter: blur(10px); 
     border-bottom: 1px solid #222; 
 }
 
-/* Standard-Zustand des Menü-Buttons */
 .navbar .dropdown-toggle {
     color: var(--accent) !important;
     border-color: var(--accent) !important;
@@ -41,7 +39,6 @@ body {
     transition: all 0.2s ease-in-out;
 }
 
-/* Hover-Effekt & Zustand, wenn das Menü geöffnet ist (.show) */
 .navbar .dropdown-toggle:hover,
 .navbar .dropdown-toggle:focus,
 .navbar .dropdown-toggle.show {
@@ -51,39 +48,118 @@ body {
 }
 
 /* ==========================================================================
-   3. DROPDOWNS (MENÜ & SPRACHAUSWAHL)
+   3. DROPDOWNS
    ========================================================================== */
-/* Hintergrund & Rahmen für das Dropdown-Menü */
 .dropdown-menu-dark {
     background-color: var(--bg) !important;
     border: 1px solid #222 !important; 
 }
 
-/* Trennlinien im Dropdown-Menü anpassen */
 .dropdown-menu-dark .dropdown-divider {
     border-top: 1px solid #222 !important;
-    opacity: 1 !important; /* Verhindert das Standard-Ausblenden von Bootstrap */
+    opacity: 1 !important;
 }
 
-/* Dropdown-Text in der leuchtenden Neon-Farbe */
 .dropdown-menu-dark .dropdown-item {
     color: var(--accent) !important; 
     transition: all 0.2s ease-in-out;
 }
 
-/* Hover-Effekt: Hintergrund wird leuchtgrün und Text wird schwarz */
 .dropdown-menu-dark .dropdown-item:hover {
     color: #000000 !important;
     background-color: var(--accent) !important;
 }
 
 /* ==========================================================================
-   4. KARTEN (CARDS) & BADGES
+   4. DASHBOARD SPECIFIC (DROPDOWN & TABLE CARD)
    ========================================================================== */
-/* Hover-Effekte für Cards */
+.btn-box-dropdown {
+    background-color: var(--card-bg) !important;
+    border: 1px solid var(--accent) !important;
+    color: var(--accent) !important;
+    transition: all 0.2s ease-in-out;
+}
+
+.btn-box-dropdown:hover,
+.btn-box-dropdown:focus,
+.btn-box-dropdown.show {
+    background-color: var(--accent) !important;
+    border-color: var(--accent) !important;
+    color: #000000 !important;
+    box-shadow: 0 0 10px rgba(0, 255, 204, 0.4) !important;
+}
+
+.box-dropdown-menu {
+    background-color: var(--card-bg) !important;
+    border: 1px solid var(--accent) !important;
+    margin-top: 5px !important;
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.5);
+}
+
+.box-dropdown-menu .dropdown-item {
+    color: var(--accent) !important; 
+    padding: 10px 20px;
+    transition: all 0.2s ease-in-out;
+}
+
+.box-dropdown-menu .dropdown-item:hover {
+    background-color: var(--accent) !important;
+    color: #000000 !important;
+}
+
+/* --- TABELLEN-DESIGN --- */
+.table-card {
+    background-color: var(--card-bg);
+    border: 1px solid #222;
+    border-radius: 12px;
+    padding: 20px;
+    margin-top: 25px;
+    overflow: hidden; 
+    transition: all 0.3s ease;
+}
+
+.table-card .table {
+    background-color: transparent !important;
+    color: #fff;
+    margin-bottom: 0;
+}
+
+/* Überschriften (Accent) */
+.table-card .table thead th {
+    color: var(--accent) !important;
+}
+
+/* Platzierung (#) immer in Accent */
+.table-card .table tbody td:first-child {
+    color: var(--accent) !important;
+    font-weight: bold;
+}
+
+/* --- Ranglisten-Hintergrundfarben (Gold, Silber, Bronze) --- */
+/* Gold für den echten 1. Platz */
+.table-card .table.table-dark tbody tr.rank-1 td {
+    background-color: rgba(255, 215, 0, 0.2) !important;
+    color: #FFD700 !important;
+}
+
+/* Silber für den echten 2. Platz */
+.table-card .table.table-dark tbody tr.rank-2 td {
+    background-color: rgba(192, 192, 192, 0.15) !important;
+    color: #C0C0C0 !important;
+}
+
+/* Bronze für den echten 3. Platz */
+.table-card .table.table-dark tbody tr.rank-3 td {
+    background-color: rgba(184, 115, 51, 0.15) !important;
+    color: #CD7F32 !important;
+}
+/* ==========================================================================
+   5. KARTEN (CARDS)
+   ========================================================================== */
 .hover-card { 
     transition: all 0.3s ease; 
     border: 1px solid #222; 
+    background-color: var(--card-bg);
 }
 
 .hover-card:hover { 
@@ -92,12 +168,10 @@ body {
     box-shadow: 0 10px 20px rgba(0, 255, 204, 0.1); 
 }
 
-/* Farbe für den Text in den Kärtchen und im Hero-Text */
 .hover-card p, .hero-text { 
     color: var(--subtext-color); 
 }
 
-/* Tech-Badges Hover-Effekt */
 .badge {
     transition: all 0.25s ease-in-out; 
     cursor: default; 
@@ -105,16 +179,15 @@ body {
 
 .badge:hover {
     background-color: var(--accent) !important; 
-    color: #000000 !important;                  
-    border-color: var(--accent) !important;      
+    color: #000000 !important;                   
+    border-color: var(--accent) !important;       
     box-shadow: 0 0 12px var(--accent);          
-    transform: translateY(-2px);                 
+    transform: translateY(-2px);                  
 }
 
 /* ==========================================================================
-   5. BUTTONS, LINKS & FORMULARE
+   6. BUTTONS & FORMULARE
    ========================================================================== */
-/* Custom Neon Button */
 .btn-neon { 
     background: transparent; 
     border: 2px solid var(--accent); 
@@ -128,30 +201,8 @@ body {
     box-shadow: 0 0 15px var(--accent); 
 }
 
-/* Styling für die klickbaren Links in der Intro-Box */
-.intro-link {
-    text-decoration: none !important;
-    transition: all 0.2s ease-in-out;
-    display: block;
-    cursor: pointer;
-}
-
-.intro-link:hover {
-    transform: translateY(-3px);
-}
-
-.intro-link:hover .text-accent {
-    text-shadow: 0 0 10px var(--accent);
-}
-
-/* Hells den Platzhaltertext in Eingabefeldern (z.B. Gästebuch) auf */
-.form-control::placeholder {
-    color: rgba(255, 255, 255, 0.5) !important; 
-    opacity: 1; 
-}
-
 /* ==========================================================================
-   6. FOOTER & SOCIAL LINKS
+   7. FOOTER
    ========================================================================== */
 footer { 
     background: #05050f; 
@@ -162,10 +213,6 @@ footer {
 
 footer p { 
     color: #00ffcc; 
-}
-
-.socials-title { 
-    color: #fff; 
 }
 
 .social-link { 

@@ -1,7 +1,6 @@
 // guestbook.js
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+import { db } from './firebase-config.js'; // Hier laden wir die Verbindung zentral
 import { 
-    getFirestore, 
     collection, 
     addDoc, 
     onSnapshot, 
@@ -9,24 +8,6 @@ import {
     orderBy, 
     serverTimestamp 
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
-
-// Deine Firebase-Konfiguration
-const firebaseConfig = {
-  apiKey: "AIzaSyC1XrxNU_W5Qib3Lk840IXMWJQE1-69P4M",
-  authDomain: "devz-guestbook.firebaseapp.com",
-  projectId: "devz-guestbook",
-  storageBucket: "devz-guestbook.firebasestorage.app",
-  messagingSenderId: "436656643800",
-  appId: "1:436656643800:web:4778ae36504fb3b0401ad",
-  measurementId: "G-RLMJL2X96"
-};
-
-// Firebase & Firestore initialisieren
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
-
-console.log("Firebase erfolgreich verbunden!");
-
 // --------------------------------------------------------------------------
 // GÄSTEBUCH LOGIK (Einträge speichern & laden)
 // --------------------------------------------------------------------------
