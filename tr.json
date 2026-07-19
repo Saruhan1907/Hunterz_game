@@ -86,5 +86,12 @@
     "dashboard.chart-title": "Skor Gelişimi",
     "dashboard.chart-score": "Skora Göre",
     "dashboard.chart-level": "Seviyeye Göre",
-    "dashboard.chart-time": "Zamana Göre"
+    "dashboard.chart-time": "Zamana Göre",
+    "dashboard.class": "Sınıf",
+    "dashboard.weapon": "Silah",
+    "game_values.Waffenspezialist": "Silah Uzmanı",
+    "game_values.Maschinengewehr": "Makineli Tüfek",
+    "game_values.Scharfschützengewehr": "Keskin Nişancı",
+    "game_values.Schrotflinte": "Pompalı Tüfek",
+    "game_values.Geheim": "Gizli"
 }

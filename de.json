@@ -86,5 +86,12 @@
     "dashboard.chart-title": "Highscore-Entwicklung",
     "dashboard.chart-score": "Nach Score",
     "dashboard.chart-level": "Nach Level",
-    "dashboard.chart-time": "Nach Zeit"
+    "dashboard.chart-time": "Nach Zeit",
+    "dashboard.class": "Klasse",
+    "dashboard.weapon": "Waffe",
+    "game_values.Waffenspezialist": "Waffenspezialist",
+    "game_values.Maschinengewehr": "Maschinengewehr",
+    "game_values.Scharfschützengewehr": "Scharfschützengewehr",
+    "game_values.Schrotflinte": "Schrotflinte",
+    "game_values.Geheim": "Geheim"
 }

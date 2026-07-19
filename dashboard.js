@@ -74,9 +74,16 @@ function renderTable() {
     const tableBody = document.getElementById('scoreTableBody');
     tableBody.innerHTML = '';
     
-    allScores.forEach((item) => {
+    // Wir nehmen nur die ersten 50 Einträge für die Tabelle
+    const displayScores = allScores.slice(0, 50);
+    
+    displayScores.forEach((item) => {
         let dateStr = item.timestamp?.toDate ? item.timestamp.toDate().toLocaleDateString('de-DE') : "-";
         const rankClass = (item.rank && item.rank <= 3) ? `rank-${item.rank}` : '';
+
+        // Übersetzungen abrufen für Klasse und Waffe
+        const translatedClass = item.characterClass ? (window.t(`game_values.${item.characterClass}`) || item.characterClass) : '-';
+        const translatedWeapon = item.weapon ? (window.t(`game_values.${item.weapon}`) || item.weapon) : '-';
 
         tableBody.innerHTML += `
             <tr class="${rankClass}">
@@ -84,6 +91,8 @@ function renderTable() {
                 <td>${item.name || '-'}</td>
                 <td>${item.score || 0}</td>
                 <td>${item.level || 1}</td>
+                <td>${translatedClass}</td>
+                <td>${translatedWeapon}</td>
                 <td>${item.time || 0} ${window.t('dashboard.seconds')}</td> 
                 <td>${dateStr}</td>
             </tr>
@@ -100,7 +109,9 @@ function renderChart(metric = 'score') {
     const ctx = document.getElementById('scoreChart').getContext('2d');
     if (chartInstance) chartInstance.destroy();
 
-    const chartData = [...allScores].sort((a, b) => b[metric] - a[metric]);
+    // Wir nehmen die bereits sortierten allScores und slicen sie auf 10
+    // Da wir sortData aufrufen, ist allScores bereits nach score sortiert
+    const chartData = allScores.slice(0, 10); 
 
     const barColors = chartData.map(item => {
         if (item.rank === 1) return '#FFD700';
@@ -128,10 +139,20 @@ function renderChart(metric = 'score') {
                         label: (context) => {
                             const item = chartData[context.dataIndex];
                             const dateStr = item.timestamp?.toDate ? item.timestamp.toDate().toLocaleDateString('de-DE') : "-";
-                            // Aufruf der globalen Übersetzungsfunktion
+                            
+                            // Übersetzungen für die Werte abrufen
+                            const translatedClass = item.characterClass ? (window.t(`game_values.${item.characterClass}`) || item.characterClass) : '-';
+                            const translatedWeapon = item.weapon ? (window.t(`game_values.${item.weapon}`) || item.weapon) : '-';
+                            
+                            // Übersetzungen für die Hover-Kategorienamen abrufen (Fallback auf Deutsch)
+                            const trClass = window.t('dashboard.class') || 'Klasse';
+                            const trWeapon = window.t('dashboard.weapon') || 'Waffe';
+
                             return [
                                 `${window.t('dashboard.score')}: ${item.score || 0}`,
                                 `${window.t('dashboard.level')}: ${item.level || 1}`,
+                                `${trClass}: ${translatedClass}`,
+                                `${trWeapon}: ${translatedWeapon}`,
                                 `${window.t('dashboard.time')}: ${item.time || 0} ${window.t('dashboard.seconds')}`,
                                 `${window.t('dashboard.date')}: ${dateStr}`
                             ];

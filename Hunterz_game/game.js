@@ -325,6 +325,8 @@ function renderLeaderboard(scores) {
                 <td>${entry.name || 'Unknown'}</td>
                 <td>${entry.score || 0}</td>
                 <td>${entry.level || 1}</td>
+                <td>${entry.characterClass || '-'}</td> <!-- NEU: Klasse -->
+                <td>${entry.weapon || '-'}</td> <!-- NEU: Waffe -->
                 <td>${formattedTime}</td>
             `;
         } 
@@ -335,6 +337,8 @@ function renderLeaderboard(scores) {
                 <td>-</td>
                 <td>-</td>
                 <td>-</td>
+                <td>-</td> <!-- NEU: Platzhalter Klasse -->
+                <td>-</td> <!-- NEU: Platzhalter Waffe -->
                 <td>-</td>
             `;
         }
@@ -360,13 +364,19 @@ document.addEventListener('DOMContentLoaded', () => {
             submitBtn.disabled = true;
             submitBtn.innerText = "Wird gesendet...";
 
+            // ====== HIER SIND DIE RICHTIGEN VARIABLEN ======
             highscoreDB.collection("highscores").add({
                 name: playerName,
                 score: score, 
                 level: player.level, 
                 time: Math.floor(gameTime), 
+                // Wenn Index 0, dann "Waffenspezialist", sonst "Geheim" (sicherer Fallback)
+                characterClass: (currentCharViewIndex === 0) ? "Waffenspezialist" : "Geheim", 
+                // selectedClass beinhaltet deine Waffen-Daten, wir ziehen uns den Namen als Text
+                weapon: selectedClass ? selectedClass.name : "Unbekannt", 
                 timestamp: firebase.firestore.FieldValue.serverTimestamp()
             })
+            // ===============================================
             .then(() => {
                 overlay.style.display = 'none';
                 submitBtn.disabled = false;

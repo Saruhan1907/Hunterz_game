@@ -86,5 +86,12 @@
     "dashboard.chart-title": "Highscore Development",
     "dashboard.chart-score": "By Score",
     "dashboard.chart-level": "By Level",
-    "dashboard.chart-time": "By Time"
+    "dashboard.chart-time": "By Time",
+    "dashboard.class": "Class",
+    "dashboard.weapon": "Weapon",
+    "game_values.Waffenspezialist": "Weapon Specialist",
+    "game_values.Maschinengewehr": "Machine Gun",
+    "game_values.Scharfschützengewehr": "Sniper Rifle",
+    "game_values.Schrotflinte": "Shotgun",
+    "game_values.Geheim": "Secret"
 }
