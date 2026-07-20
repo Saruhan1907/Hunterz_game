@@ -6,14 +6,28 @@ let allScores = [];
 let chartInstance = null;
 let currentSort = { property: 'score', direction: -1 };
 
-// WICHTIG: window.t ist jetzt global durch translate.js verfügbar
-// Wir nutzen einfach die Funktion, die wir dort definiert haben.
+// Hilfsfunktion: Wandelt Sekunden in MM:SS um
+function formatTime(seconds) {
+    if (!seconds && seconds !== 0) return '0:00';
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60).toString().padStart(2, '0');
+    return `${mins}:${secs}`;
+}
+
+// Hilfsfunktion: Bereinigt Übersetzungen falls der Key nicht existiert
+function getTranslatedValue(category, value) {
+    if (!value || value === '-') return '-';
+    const key = `${category}.${value}`;
+    const translated = window.t(key);
+    // Falls keine Übersetzung da ist, gibt window.t den Key zurück -> wir filtern das raus
+    if (translated === key) return value; 
+    return translated;
+}
 
 async function loadData() {
     const spinner = document.getElementById('loading-spinner');
     const content = document.getElementById('dashboard-content');
 
-    // 1. Spinner zeigen, Inhalt verstecken (Falls das Laden mal länger dauert)
     spinner.style.display = 'block';
     content.style.display = 'none';
 
@@ -30,28 +44,19 @@ async function loadData() {
         sortData('score', true); 
         renderChart('score');
 
-        // 2. Erfolg: Spinner aus, Inhalt ein
         spinner.style.display = 'none';
         content.style.display = 'block';
 
     } catch (error) {
         console.error("Fehler beim Laden:", error);
-        // Auch bei Fehler den Spinner wegmachen, damit der User nicht ewig wartet
         spinner.innerHTML = '<p class="text-danger">Fehler beim Laden der Daten.</p>';
     }
 }
 
 function calculateKPIs() {
-    // Anzahl der Runs
     document.getElementById('total-runs').innerText = allScores.length;
-
-    // Berechnung der Zeit in Sekunden
     const totalTimeSeconds = allScores.reduce((sum, item) => sum + (Number(item.time) || 0), 0);
-    
-    // Umrechnung in Minuten (abgerundet auf ganze Zahlen)
     const totalMinutes = Math.floor(totalTimeSeconds / 60);
-    
-    // Anzeige im Dashboard
     document.getElementById('total-time').innerText = `${totalMinutes} ${window.t('dashboard.min')}`;
 }
 
@@ -74,16 +79,15 @@ function renderTable() {
     const tableBody = document.getElementById('scoreTableBody');
     tableBody.innerHTML = '';
     
-    // Wir nehmen nur die ersten 50 Einträge für die Tabelle
-    const displayScores = allScores.slice(0, 50);
+    const displayScores = allScores.slice(0, 100);
     
     displayScores.forEach((item) => {
         let dateStr = item.timestamp?.toDate ? item.timestamp.toDate().toLocaleDateString('de-DE') : "-";
         const rankClass = (item.rank && item.rank <= 3) ? `rank-${item.rank}` : '';
 
-        // Übersetzungen abrufen für Klasse und Waffe
-        const translatedClass = item.characterClass ? (window.t(`game_values.${item.characterClass}`) || item.characterClass) : '-';
-        const translatedWeapon = item.weapon ? (window.t(`game_values.${item.weapon}`) || item.weapon) : '-';
+        // Saubere Übersetzung mit Fallback
+        const translatedClass = getTranslatedValue('game_values', item.characterClass);
+        const translatedWeapon = getTranslatedValue('game_values', item.weapon);
 
         tableBody.innerHTML += `
             <tr class="${rankClass}">
@@ -93,7 +97,7 @@ function renderTable() {
                 <td>${item.level || 1}</td>
                 <td>${translatedClass}</td>
                 <td>${translatedWeapon}</td>
-                <td>${item.time || 0} ${window.t('dashboard.seconds')}</td> 
+                <td>${formatTime(item.time || 0)}</td> 
                 <td>${dateStr}</td>
             </tr>
         `;
@@ -109,8 +113,6 @@ function renderChart(metric = 'score') {
     const ctx = document.getElementById('scoreChart').getContext('2d');
     if (chartInstance) chartInstance.destroy();
 
-    // Wir nehmen die bereits sortierten allScores und slicen sie auf 10
-    // Da wir sortData aufrufen, ist allScores bereits nach score sortiert
     const chartData = allScores.slice(0, 10); 
 
     const barColors = chartData.map(item => {
@@ -140,11 +142,9 @@ function renderChart(metric = 'score') {
                             const item = chartData[context.dataIndex];
                             const dateStr = item.timestamp?.toDate ? item.timestamp.toDate().toLocaleDateString('de-DE') : "-";
                             
-                            // Übersetzungen für die Werte abrufen
-                            const translatedClass = item.characterClass ? (window.t(`game_values.${item.characterClass}`) || item.characterClass) : '-';
-                            const translatedWeapon = item.weapon ? (window.t(`game_values.${item.weapon}`) || item.weapon) : '-';
+                            const translatedClass = getTranslatedValue('game_values', item.characterClass);
+                            const translatedWeapon = getTranslatedValue('game_values', item.weapon);
                             
-                            // Übersetzungen für die Hover-Kategorienamen abrufen (Fallback auf Deutsch)
                             const trClass = window.t('dashboard.class') || 'Klasse';
                             const trWeapon = window.t('dashboard.weapon') || 'Waffe';
 
@@ -153,7 +153,7 @@ function renderChart(metric = 'score') {
                                 `${window.t('dashboard.level')}: ${item.level || 1}`,
                                 `${trClass}: ${translatedClass}`,
                                 `${trWeapon}: ${translatedWeapon}`,
-                                `${window.t('dashboard.time')}: ${item.time || 0} ${window.t('dashboard.seconds')}`,
+                                `${window.t('dashboard.time')}: ${formatTime(item.time || 0)}`,
                                 `${window.t('dashboard.date')}: ${dateStr}`
                             ];
                         }

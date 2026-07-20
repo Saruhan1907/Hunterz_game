@@ -29,14 +29,14 @@
             background-color: #0a0a1a;
         }
 
-        /* Cyber-Highscore-Overlay */
+        /* Cyber-Highscore-Overlay (Eingabe bei Game Over) */
         #highscoreOverlay {
             display: none;
             position: absolute;
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            background: rgb(10, 10, 26); 
+            background: rgba(10, 10, 26, 0.95); 
             border: 2px solid #00ffcc;
             box-shadow: 0 0 30px rgba(0, 255, 204, 0.5);
             padding: 30px 25px;
@@ -92,91 +92,138 @@
             box-shadow: 0 0 15px #00ffcc;
         }
 
-        /* Styling für das Hauptmenü-Leaderboard */
-        #leaderboardOverlay {
-            display: none;
-            position: absolute;
+        /* ===== GLOBALES LEADERBOARD OVERLAY ===== */
+        #leaderboardOverlay, 
+        #leaderboardOverlay[style*="display: block"] {
+            display: none; 
+            position: fixed;
+            top: 50%;
             left: 50%;
-            transform: translateX(-50%);
-            background: rgba(10, 10, 26, 0.95);
+            transform: translate(-50%, -50%);
+            background: rgba(10, 10, 26, 0.92);
             border: 2px solid #00ffcc;
-            box-shadow: 0 0 25px rgba(0, 255, 204, 0.3);
-            padding: 15px 20px;
-            border-radius: 12px;
-            width: 95%;
-            max-width: 760px;
-            z-index: 5;
-            /* PC Einstellungen */
-            top: 67%;
-            max-height: 31vh; /* Angepasst, damit es nicht aus dem Bild rutscht */
+            box-shadow: 0 0 30px rgba(0, 255, 204, 0.4);
+            padding: 20px 25px;
+            border-radius: 16px;
+            width: 92%;
+            max-width: 950px;
+            height: 85vh;     /* Nutzt 85% der Höhe */
+            max-height: 85vh;
+            z-index: 1000;
+            box-sizing: border-box;
+        }
+
+        /* Wenn sichtbar -> IMMER als Flexbox anzeigen! */
+        #leaderboardOverlay[style*="display: block"],
+        #leaderboardOverlay[style*="display: flex"] {
+            display: flex !important;
+            flex-direction: column;
+            justify-content: space-between;
         }
 
         #leaderboardOverlay h3 {
             color: #00ffcc;
-            font-size: 18px;
-            margin-bottom: 10px;
-            text-shadow: 0 0 10px rgba(0, 255, 204, 0.4);
+            font-size: 22px;
+            margin-bottom: 15px;
+            text-shadow: 0 0 10px rgba(0, 255, 204, 0.5);
             text-align: center;
+            flex-shrink: 0;
         }
 
+        /* Dehnt die Tabelle JETZT VOLLSTÄNDIG aus */
         .table-responsive {
+            flex: 1; /* Nimmt JEDEN verfügbaren Pixel bis zum Button ein! */
             overflow-y: auto;
             overflow-x: auto;
-            max-height: 25vh; /* Angepasst für sauberen Sitz */
-            padding-right: 3px;
+            margin-bottom: 15px;
+            padding-right: 5px;
+            border: 1px solid rgba(0, 255, 204, 0.15); /* Subtiler Rand um die Tabelle */
+            border-radius: 8px;
         }
 
         /* Dünne Neon-Scrollbars */
         .table-responsive::-webkit-scrollbar {
-            width: 5px;
-            height: 5px;
+            width: 6px;
+            height: 6px;
         }
         .table-responsive::-webkit-scrollbar-track {
-            background: transparent;
+            background: rgba(255, 255, 255, 0.05);
         }
         .table-responsive::-webkit-scrollbar-thumb {
             background: #00ffcc;
             border-radius: 10px;
+            box-shadow: 0 0 10px #00ffcc;
         }
 
         .leaderboard-table {
             width: 100%;
             border-collapse: collapse;
             color: #ffffff;
-            font-size: 14px;
+            font-size: 15px;
             white-space: nowrap;
         }
 
         .leaderboard-table th {
+            position: sticky;
+            top: 0;
+            background: #0d1127; /* Tabellenkopf bleibt beim Scrollen fest oben */
             color: #00ffcc;
-            border-bottom: 1px solid rgba(0, 255, 204, 0.3);
-            padding: 6px 4px;
+            border-bottom: 2px solid rgba(0, 255, 204, 0.4);
+            padding: 10px 8px;
             text-align: left;
-            font-size: 13px;
+            font-size: 14px;
+            z-index: 2;
         }
 
         .leaderboard-table td {
-            padding: 6px 4px;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            padding: 10px 8px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
         }
 
         .leaderboard-table tr:nth-child(1) td { color: #ffd700; font-weight: bold; }
         .leaderboard-table tr:nth-child(2) td { color: #c0c0c0; }
         .leaderboard-table tr:nth-child(3) td { color: #cd7f32; }
 
-        /* Medienabfrage für Handys */
+        /* Zurück Button fest unten verankert */
+        #closeLeaderboardBtn {
+            flex-shrink: 0; /* Button wird nie gequetscht */
+            padding: 12px 35px;
+            font-size: 16px;
+            font-weight: bold;
+            background: rgba(0, 255, 204, 0.1);
+            color: #00ffcc;
+            border: 2px solid #00ffcc;
+            border-radius: 8px;
+            cursor: pointer;
+            display: block;
+            margin: 0 auto;
+            box-shadow: 0 0 15px rgba(0, 255, 204, 0.2);
+            transition: all 0.2s ease;
+        }
+
+        #closeLeaderboardBtn:hover {
+            background: #00ffcc;
+            color: #0a0a1a;
+            box-shadow: 0 0 20px #00ffcc;
+        }
+
+        /* Medienabfrage für Mobile */
         @media (max-width: 768px) {
             #leaderboardOverlay {
-                top: auto;
-                bottom: 2%;
-                width: 96%;
-                max-height: 32vh;
-            }
-            .table-responsive {
-                max-height: 22vh;
+                width: 95%;
+                height: 90vh;
+                max-height: 90vh;
+                padding: 15px;
             }
             .leaderboard-table {
-                font-size: 11px;
+                font-size: 12px;
+            }
+            .leaderboard-table th, .leaderboard-table td {
+                padding: 8px 4px;
+            }
+            #closeLeaderboardBtn {
+                padding: 10px 20px;
+                font-size: 14px;
             }
         }
     </style>
@@ -192,7 +239,6 @@
     <!-- Das Highscore Eingabe-Fenster (Game Over) -->
     <div id="highscoreOverlay" style="display: none;">
         <h3>NEW RECORD!</h3>
-        <!-- Die Werte direkt im Popup -->
         <div id="scoreDisplay" style="color: #fff; margin-bottom: 15px; font-size: 16px;">
             <p>Score: <span id="valScore" style="color: #00ffcc;">0</span></p>
             <p>Level: <span id="valLevel" style="color: #00ffcc;">1</span></p>
@@ -205,8 +251,8 @@
     </div>
 
     <!-- Das globale Leaderboard (Hauptmenü) -->
-    <div id="leaderboardOverlay">
-        <h3>🏆 GLOBAL TOP 10</h3>
+    <div id="leaderboardOverlay" style="display: none;">
+        <h3>🏆 GLOBAL TOP 100</h3>
         <div class="table-responsive">
             <table class="leaderboard-table">
                 <thead>
@@ -225,6 +271,8 @@
                 </tbody>
             </table>
         </div>
+        <!-- Zurück-Button -->
+        <button id="closeLeaderboardBtn">Zurück</button>
     </div>
 
     <script src="game.js"></script>

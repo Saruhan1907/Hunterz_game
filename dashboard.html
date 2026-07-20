@@ -121,23 +121,25 @@
 
             <!-- Table Card -->
             <div class="table-card hover-card">
-                <table class="table table-dark table-hover">
-                    <thead>
-                        <tr>
-                            <th data-i18n="dashboard.rank">#</th>
-                            <th data-i18n="dashboard.name">Name</th>
-                            <th style="cursor:pointer" onclick="sortData('score')" data-i18n="dashboard.score">Score ↕</th>
-                            <th style="cursor:pointer" onclick="sortData('level')" data-i18n="dashboard.level">Level ↕</th>
-                            <th data-i18n="dashboard.class">Klasse</th>
-                            <th data-i18n="dashboard.weapon">Waffe</th>
-                            <th style="cursor:pointer" onclick="sortData('time')" data-i18n="dashboard.time">Zeit ↕</th>
-                            <th data-i18n="dashboard.date">Datum</th>
-                        </tr>
-                    </thead>
-                    <tbody id="scoreTableBody">
-                        <!-- Daten -->
-                    </tbody>
-                </table>
+                <div class="table-responsive leaderboard-scroll-container">
+                    <table class="table table-dark table-hover align-middle">
+                        <thead>
+                            <tr>
+                                <th data-i18n="dashboard.rank">#</th>
+                                <th data-i18n="dashboard.name">Name</th>
+                                <th style="cursor:pointer" onclick="sortData('score')" data-i18n="dashboard.score">Score ↕</th>
+                                <th style="cursor:pointer" onclick="sortData('level')" data-i18n="dashboard.level">Level ↕</th>
+                                <th data-i18n="dashboard.class">Klasse</th>
+                                <th data-i18n="dashboard.weapon">Waffe</th>
+                                <th style="cursor:pointer" onclick="sortData('time')" data-i18n="dashboard.time">Zeit ↕</th>
+                                <th data-i18n="dashboard.date">Datum</th>
+                            </tr>
+                        </thead>
+                        <tbody id="scoreTableBody">
+                            <!-- Daten -->
+                        </tbody>
+                    </table>
+                </div>
             </div>
 
             <!-- Socials Section -->
