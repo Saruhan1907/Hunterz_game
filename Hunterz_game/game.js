@@ -136,6 +136,9 @@ playerSprite.src = 'assets/character1.png';
 // ===== MINIBOSS BILD =====
 const minibossSprite = new Image();
 minibossSprite.src = 'assets/miniboss1.png';
+// ===== SONER BILD =====
+const sonerSprite = new Image();
+sonerSprite.src = 'assets/soner.png'; // Relativer Pfad zum assets-Ordner
 
 // ===== TASTATUR-STATUS =====
 const keys = {
@@ -2083,7 +2086,7 @@ function spawnMiniboss() {
         y: by, 
         size: size, 
         baseSize: size,
-        speed: enemyBaseSpeed * 1.2, 
+        speed: enemyBaseSpeed * 1.4, 
         color: '#aa44ff', 
         glow: '#ff88ff',
         angle: 0,
@@ -2101,6 +2104,45 @@ function spawnMiniboss() {
     });
     
     minibossSpawned = true;
+}
+
+let sonerSpawned = false; // globale Variable oben im Script deklarieren
+
+function spawnSoner() {
+    if (gameState !== 'PLAYING') return;
+    
+    const size = 70; 
+    const hp = 7000; // Etwas mehr HP als der erste Boss
+    
+    const randomAngle = Math.random() * Math.PI * 2;
+    const spawnDistance = 500; 
+    
+    const bx = player.x + Math.cos(randomAngle) * spawnDistance;
+    const by = player.y + Math.sin(randomAngle) * spawnDistance;
+    
+    enemies.push({
+        x: bx, 
+        y: by, 
+        size: size, 
+        baseSize: size,
+        speed: enemyBaseSpeed * 1.3, // Normale Laufgeschwindigkeit
+        color: '#ff4400', 
+        glow: '#ff8800',
+        angle: 0,
+        facingLeft: false,
+        health: hp,
+        maxHealth: hp,
+        type: 'MINIBOSS',
+        bossType: 'SONER', // Identifiziert Soner
+        state: 'WALKING',  // WALKING, CHARGING, DASHING, STUNNED
+        stateTimer: Date.now(),
+        targetX: 0,
+        targetY: 0,
+        xpValue: 800, 
+        dropCount: 30
+    });
+    
+    sonerSpawned = true;
 }
 
 // ===== XP-KRISTALL DROPPEN =====
@@ -2231,6 +2273,9 @@ function update() {
         if (!minibossSpawned && gameTime >= 60) {
             spawnMiniboss();
         }
+        if (!sonerSpawned && gameTime >= 10) { 
+            spawnSoner();
+        }
 
         if (!isMobile) {
             player.angle = Math.atan2(mouseY - CANVAS_HEIGHT / 2, mouseX - CANVAS_WIDTH / 2);
@@ -2277,65 +2322,127 @@ function update() {
             const dx = player.x - e.x;
             const dy = player.y - e.y;
             const length = Math.sqrt(dx * dx + dy * dy);
-            const isScreaming = (Date.now() - (e.lastAttackTime || 0)) < 1000;
+            const nowTime = Date.now();
 
-            // --- BEWEGUNG & BLICKRICHTUNG ---
             if (e.type === 'MINIBOSS') {
-                // Solange er NICHT schreit: Bewegen und Blickrichtung (Spiegelung) anpassen
-                if (!isScreaming) {
-                    if (length > 0) {
-                        e.x += (dx / length) * e.speed;
-                        e.y += (dy / length) * e.speed;
+                // ==========================================
+                // A) SONER (HEADBUTT-BOSS)
+                // ==========================================
+                if (e.bossType === 'SONER') {
+                    if (!e.state) e.state = 'WALKING';
+                    if (!e.stateTimer) e.stateTimer = nowTime;
+
+                    // 1. WALKING: 6 Sekunden lang Verfolgung
+                    if (e.state === 'WALKING') {
+                        if (length > 0) {
+                            e.x += (dx / length) * e.speed;
+                            e.y += (dy / length) * e.speed;
+                        }
+                        e.facingLeft = (dx < 0);
+
+                        if (nowTime - e.stateTimer > 3000) {
+                            e.state = 'CHARGING';
+                            e.stateTimer = nowTime;
+                            e.targetX = player.x;
+                            e.targetY = player.y;
+                        }
+                    } 
+                    // 2. CHARGING: 1 Sekunde Stillstand & Ziel erfassen
+                    else if (e.state === 'CHARGING') {
+                        if (nowTime - e.stateTimer > 1000) {
+                            e.state = 'DASHING';
+                            e.stateTimer = nowTime;
+                        }
+                    } 
+                    // C) DASHING: Mit 3.5-facher Geschwindigkeit auf den Zielpunkt zuschiessen
+                    else if (e.state === 'DASHING') {
+                        const dashDx = e.targetX - e.x;
+                        const dashDy = e.targetY - e.y;
+                        const dashDist = Math.sqrt(dashDx * dashDx + dashDy * dashDy);
+                        const dashSpeed = e.speed * 10;
+
+                        // Wenn der Zielpunkt im nächsten Frame erreicht wird:
+                        if (dashDist <= dashSpeed || dashDist < 15) {
+                            // Exakt auf dem Zielpunkt landen
+                            e.x = e.targetX;
+                            e.y = e.targetY;
+                            
+                            // Einschlag-Effekt (Partikel)
+                            createExplosion(e.x, e.y, 25, '#ff2200', '#ffaa00', 5);
+
+                            // Flächenschaden am Einschlagpunkt
+                            const distToPlayer = Math.sqrt((player.x - e.x)**2 + (player.y - e.y)**2);
+                            if (distToPlayer < 90) {
+                                player.health -= 35;
+                                screenDamageFlash = 0.6;
+                                createExplosion(player.x, player.y, 10, '#ff0000', '#880000', 3);
+                            }
+
+                            // Wechsel zu BENOMMEN
+                            e.state = 'STUNNED';
+                            e.stateTimer = nowTime;
+                        } else {
+                            e.x += (dashDx / dashDist) * dashSpeed;
+                            e.y += (dashDy / dashDist) * dashSpeed;
+                        }
                     }
-                    e.facingLeft = (dx < 0); // Spiegelt das Sprite nach links
+                    // 4. STUNNED: 1.5 Sekunden benommen pausieren
+                    else if (e.state === 'STUNNED') {
+                        if (nowTime - e.stateTimer > 1500) {
+                            e.state = 'WALKING';
+                            e.stateTimer = nowTime;
+                        }
+                    }
+                } 
+                // ==========================================
+                // B) ERSTER MINIBOSS (SCHREI-BOSS)
+                // ==========================================
+                else {
+                    const isScreaming = (nowTime - (e.lastAttackTime || 0)) < 1000;
+                    if (!isScreaming) {
+                        if (length > 0) {
+                            e.x += (dx / length) * e.speed;
+                            e.y += (dy / length) * e.speed;
+                        }
+                        e.facingLeft = (dx < 0);
+                    }
+
+                    if (!e.lastAttackTime) e.lastAttackTime = nowTime;
+                    if (!e.lastDamageTime) e.lastDamageTime = 0;
+
+                    if (nowTime - e.lastAttackTime > 6000) {
+                        e.lastAttackTime = nowTime;
+                        e.attackAngle = Math.atan2(player.y - e.y, player.x - e.x);
+                        e.facingLeft = (player.x < e.x);
+                        try { playBossScreamSound(); } catch (err) {}
+                    }
+
+                    const timeSinceAttack = nowTime - e.lastAttackTime;
+                    const isScreamingNow = timeSinceAttack > 0 && timeSinceAttack < 1000;
+
+                    if (isScreamingNow) {
+                        const distToPlayer = Math.sqrt((player.x - e.x)**2 + (player.y - e.y)**2);
+                        const angleToPlayer = Math.atan2(player.y - e.y, player.x - e.x);
+                        let angleDiff = Math.abs(angleToPlayer - (e.attackAngle || 0));
+                        if (angleDiff > Math.PI) angleDiff = 2 * Math.PI - angleDiff;
+
+                        if (distToPlayer < 350 && angleDiff < Math.PI / 6) {
+                            if (nowTime - e.lastDamageTime > 100) {
+                                player.health -= 2.5;
+                                e.lastDamageTime = nowTime;
+                                screenDamageFlash = 0.4;
+                                createExplosion(player.x, player.y, 5, '#ff4400', '#ff0000', 1);
+                            }
+                        }
+                    }
                 }
             } else {
-                // Normale Gegner-Logik
+                // NORMALE GEGNER
                 if (length > 0) {
                     e.x += (dx / length) * e.speed;
                     e.y += (dy / length) * e.speed;
                 }
                 e.angle += e.rotSpeed;
-            }
-
-            // --- MINIBOSS ATTACKE & SCHADEN ---
-            if (e.type === 'MINIBOSS') {
-                if (!e.lastAttackTime) e.lastAttackTime = Date.now();
-                if (!e.lastDamageTime) e.lastDamageTime = 0;
-                const nowTime = Date.now();
-
-                // Alle 6 Sekunden Schrei auslösen
-                if (nowTime - e.lastAttackTime > 6000) {
-                    e.lastAttackTime = nowTime;
-
-                    // 🎯 TARGET-LOCK: Richtung zum Spieler genau beim Start des Schreis speichern (360 Grad)
-                    e.attackAngle = Math.atan2(player.y - e.y, player.x - e.x);
-                    e.facingLeft = (player.x < e.x);
-
-                    try { playBossScreamSound(); } catch (err) {}
-                }
-
-                const timeSinceAttack = nowTime - e.lastAttackTime;
-                const isScreamingNow = timeSinceAttack > 0 && timeSinceAttack < 1000;
-
-                if (isScreamingNow) {
-                    const distToPlayer = Math.sqrt((player.x - e.x)**2 + (player.y - e.y)**2);
-                    
-                    // Exakte 360°-Winkel-Prüfung basierend auf e.attackAngle
-                    const angleToPlayer = Math.atan2(player.y - e.y, player.x - e.x);
-                    let angleDiff = Math.abs(angleToPlayer - (e.attackAngle || 0));
-                    if (angleDiff > Math.PI) angleDiff = 2 * Math.PI - angleDiff;
-
-                    // Schaden nur, wenn Spieler im fixierten 60°-Kegel (Math.PI / 6) steht
-                    if (distToPlayer < 350 && angleDiff < Math.PI / 6) {
-                        if (nowTime - e.lastDamageTime > 100) {
-                            player.health -= 2.5;
-                            e.lastDamageTime = nowTime;
-                            screenDamageFlash = 0.4;
-                            createExplosion(player.x, player.y, 5, '#ff4400', '#ff0000', 1);
-                        }
-                    }
-                }
             }
         }
 
@@ -2645,6 +2752,7 @@ function drawPlayer() {
 
 function drawEnemy(e) {
     ctx.save();
+    // 1. Leinwand EINMAL auf die Bildschirmposition des Gegners verschieben
     const drawX = e.x - cameraX + CANVAS_WIDTH / 2;
     const drawY = e.y - cameraY + CANVAS_HEIGHT / 2;
     ctx.translate(drawX, drawY);
@@ -2659,15 +2767,92 @@ function drawEnemy(e) {
         const imgW = currentSize * 1.9;
         const imgH = currentSize * 2.2;
 
+        // ==========================================
+        // DRAW LOGIK FÜR SONER (HEADBUTT-BOSS)
+        // ==========================================
+        if (e.bossType === 'SONER') {
+            let vibX = 0;
+            let vibY = 0;
+
+            // A) Warnkreis exakt am Zielpunkt auf dem Boden zeichnen
+            if (e.state === 'CHARGING') {
+                vibX = (Math.random() - 0.5) * 8; // Vibration
+                vibY = (Math.random() - 0.5) * 8;
+
+                // Relative Entfernung von Soner zum Zielpunkt berechnen
+                const relTargetX = e.targetX - e.x;
+                const relTargetY = e.targetY - e.y;
+
+                ctx.save();
+                ctx.beginPath();
+                ctx.arc(relTargetX, relTargetY, 90, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(255, 0, 0, 0.25)';
+                ctx.fill();
+                ctx.strokeStyle = '#ff0000';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+                ctx.restore();
+            }
+
+            // B) Soners Sprite zeichnen
+            ctx.save();
+            ctx.translate(vibX, vibY); // Nur das Zittern anwenden
+
+            if (e.facingLeft) ctx.scale(-1, 1);
+
+            // Leuchten je nach Zustand
+            if (e.state === 'CHARGING') {
+                ctx.shadowBlur = 50;
+                ctx.shadowColor = '#ff0000';
+            } else if (e.state === 'STUNNED') {
+                ctx.shadowBlur = 20;
+                ctx.shadowColor = '#ffff00';
+            } else {
+                ctx.shadowBlur = 35;
+                ctx.shadowColor = '#ff6600';
+            }
+
+            // Sprite oder Ersatz-Box
+            if (typeof sonerSprite !== 'undefined' && sonerSprite.complete && sonerSprite.naturalWidth !== 0) {
+                ctx.drawImage(sonerSprite, -imgW / 2, -imgH / 2, imgW, imgH);
+            } else if (typeof minibossSprite !== 'undefined' && minibossSprite.complete && minibossSprite.naturalWidth !== 0) {
+                ctx.drawImage(minibossSprite, -imgW / 2, -imgH / 2, imgW, imgH);
+            } else {
+                ctx.fillStyle = (e.state === 'CHARGING') ? '#ff0000' : '#ff4400';
+                ctx.fillRect(-imgW / 2, -imgH / 2, imgW, imgH);
+            }
+
+            ctx.restore();
+
+            // C) Benommenheits-Sterne über dem Kopf zeichnen
+            if (e.state === 'STUNNED') {
+                ctx.save();
+                ctx.fillStyle = '#ffff00';
+                const starAngle = (Date.now() / 200);
+                for (let i = 0; i < 3; i++) {
+                    const sx = Math.cos(starAngle + (i * Math.PI * 2 / 3)) * 30;
+                    const sy = -imgH / 2 - 15 + Math.sin(starAngle + (i * Math.PI * 2 / 3)) * 10;
+                    ctx.beginPath();
+                    ctx.arc(sx, sy, 5, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                ctx.restore();
+            }
+
+            ctx.restore(); // Schließt den äußeren Save
+            return;
+        }
+
+        // ==========================================
+        // ERSTER MINIBOSS (SCHREI-BOSS)
+        // ==========================================
         const timeSinceAttack = Date.now() - (e.lastAttackTime || 0);
         const isScreaming = timeSinceAttack > 0 && timeSinceAttack < 1000;
 
-        // 1. SCHREI-KEGEL (Zeichnet 360° in Richtung e.attackAngle)
         if (isScreaming) {
             ctx.save();
-            ctx.rotate(e.attackAngle || 0); // Kegel in fest angepeilte Richtung drehen
+            ctx.rotate(e.attackAngle || 0);
             
-            // Kegel-Grundform
             ctx.beginPath();
             ctx.moveTo(0, 0);
             ctx.lineTo(Math.cos(-Math.PI / 6) * 350, Math.sin(-Math.PI / 6) * 350);
@@ -2676,7 +2861,6 @@ function drawEnemy(e) {
             ctx.fillStyle = 'rgba(255, 0, 0, 0.25)';
             ctx.fill();
 
-            // Schallwellen
             const time = Date.now() % 1000;
             const waveProgress = time / 1000;
             ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
@@ -2691,7 +2875,6 @@ function drawEnemy(e) {
             ctx.restore();
         }
 
-        // 2. BOSS SPRITE (Spiegelt sich sauber nur nach links/rechts)
         ctx.save();
         if (e.facingLeft) {
             ctx.scale(-1, 1);
