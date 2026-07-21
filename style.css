@@ -212,7 +212,7 @@ body {
 
 .badge:hover {
     background-color: var(--accent) !important; 
-    color: #000000 !important;                    
+    color: #000000 !important;                     
     border-color: var(--accent) !important;        
     box-shadow: 0 0 12px var(--accent);          
     transform: translateY(-2px);                  
@@ -327,4 +327,76 @@ a:hover {
     .hover-card h5 {
         font-size: 0.9rem !important;
     }
+}
+
+/* ==========================================================================
+   10. PET API CARD OPTIMIERUNG (FLÄCHE VERGRÖSSERN & LÜCKEN KILLEN)
+   ========================================================================== */
+
+/* 1. Gesamte Karte & Body stramm als Flex-Box von OBEN nach UNTEN aufbauen */
+#pet-section,
+#pet-section .card,
+#pet-section .hover-card {
+    height: 100% !important;
+    display: flex !important;
+    flex-direction: column !important;
+}
+
+#pet-section .card-body {
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: flex-start !important; /* Zieht alles stramm nach oben an die Buttons */
+    height: 100% !important;
+    flex: 1 1 auto !important;
+    padding-bottom: 15px !important;
+}
+
+/* 2. Alle ungewollten Bootstrap-Margins/Abstände im Card-Body killen */
+#pet-section .card-body > * {
+    margin-top: 0 !important;
+    margin-bottom: 0 !important;
+}
+
+/* 3. Feste Abstände NUR für Titel und Buttons */
+#pet-section h5,
+#pet-section .card-title {
+    margin-bottom: 10px !important;
+    flex-shrink: 0 !important;
+}
+
+#pet-section .btn-group,
+#pet-section .d-flex {
+    margin-bottom: 10px !important;
+    flex-shrink: 0 !important; /* Buttons behalten ihre eigene Höhe */
+}
+
+/* 4. Jeder Wrapper um das Bild (falls vorhanden) MUSS die Höhe erzwingen */
+#pet-section .card-body > div:last-child,
+#pet-section .card-body > div:has(img),
+#pet-section .card-body > div:has(#pet-image),
+#pet-section .card-body > div:has(#petImage) {
+    flex: 1 1 auto !important;
+    display: flex !important;
+    flex-direction: column !important;
+    height: 100% !important;
+    width: 100% !important;
+    margin-top: 0 !important;
+}
+
+/* 5. DAS BILD: Baut eine große Anzeigefläche auf & füllt sie komplett aus */
+#pet-section img,
+#pet-image,
+#petImage {
+    margin-top: -70px !important; /* Zieht das Bild 10px nach OBEN */
+    width: 100% !important;
+    height: 100% !important;
+    min-height: 280px !important; /* Zwingt das Bild, deutlich höher/größer zu werden! */
+    max-height: none !important;
+    flex: 1 1 auto !important;
+    
+    object-fit: cover !important; /* Füllt das gesamte vergrößerte Feld ohne Verzerren */
+    object-position: center !important;
+    
+    border-radius: 8px !important;
+    display: block !important;
 }

@@ -2067,7 +2067,7 @@ function spawnEnemy() {
     });
 }
 
-// ==== MINIBOSS SPAWNEN =====
+// ==== MINIBOSS SPAWNEN (ZAFER)=====
 function spawnMiniboss() {
     if (gameState !== 'PLAYING') return;
     
@@ -2086,7 +2086,7 @@ function spawnMiniboss() {
         y: by, 
         size: size, 
         baseSize: size,
-        speed: enemyBaseSpeed * 1.4, 
+        speed: enemyBaseSpeed * 1.5, 
         color: '#aa44ff', 
         glow: '#ff88ff',
         angle: 0,
@@ -2096,6 +2096,8 @@ function spawnMiniboss() {
         health: hp,
         maxHealth: hp,
         type: 'MINIBOSS',
+        bossType: 'ZAFER',
+        name: 'Zafer', // <--- NEU: Name für den ersten Boss
         xpValue: 500, 
         dropCount: 25,
         lastAttackTime: Date.now() - 3000, 
@@ -2125,7 +2127,7 @@ function spawnSoner() {
         y: by, 
         size: size, 
         baseSize: size,
-        speed: enemyBaseSpeed * 1.3, // Normale Laufgeschwindigkeit
+        speed: enemyBaseSpeed * 1.4, // Normale Laufgeschwindigkeit
         color: '#ff4400', 
         glow: '#ff8800',
         angle: 0,
@@ -2134,12 +2136,13 @@ function spawnSoner() {
         maxHealth: hp,
         type: 'MINIBOSS',
         bossType: 'SONER', // Identifiziert Soner
+        name: 'Soner', // Name des Bosses
         state: 'WALKING',  // WALKING, CHARGING, DASHING, STUNNED
         stateTimer: Date.now(),
         targetX: 0,
         targetY: 0,
-        xpValue: 800, 
-        dropCount: 30
+        xpValue: 700, 
+        dropCount: 35
     });
     
     sonerSpawned = true;
@@ -2147,17 +2150,39 @@ function spawnSoner() {
 
 // ===== XP-KRISTALL DROPPEN =====
 function dropXpCrystal(x, y, count = 1, totalValue = 1) {
-    // Berechne den Wert pro Kristall (z.B. 500 XP / 25 Kristalle = 20 XP pro Kristall)
+    // Berechne den Wert pro Kristall
     const valuePerCrystal = totalValue / count;
 
     for (let i = 0; i < count; i++) {
+        let size = 6;
+        let color = '#4488ff';
+        let glow = '#0044ff';
+
+        // --- DREI STUFEN FÜR OPTISCHE UNTERSCHEIDUNG ---
+        if (count >= 5) {
+            // STUFE 3: BOSSE (Zafer, Soner etc. mit 25+ Kristallen)
+            size = 11;             // Noch größer!
+            color = '#ffd700';     // Strahlendes Gold
+            glow = '#ffaa00';      // Warmer Orange-Glow
+        } else if (count > 1) {
+            // STUFE 2: STÄRKERE MOBS (z. B. 3 Kristalle)
+            size = 8;              // Mittlere Größe
+            color = '#aa44ff';     // Lila
+            glow = '#ff88ff';
+        } else {
+            // STUFE 1: BASIC MOBS (1 Kristall)
+            size = 6;              // Klein
+            color = '#4488ff';     // Blau
+            glow = '#0044ff';
+        }
+
         xpCrystals.push({
-            // Streue die Kristalle in einem schönen Kreis um den Todesort des Bosses
+            // Streue die Kristalle in einem schönen Kreis um den Todesort
             x: x + (Math.random() - 0.5) * 60,
             y: y + (Math.random() - 0.5) * 60,
-            size: count > 1 ? 8 : 6, // Boss-Kristalle sind ein kleines bisschen größer!
-            color: count > 1 ? '#aa44ff' : '#4488ff', // Lila für Boss-Loot, Blau für Standard
-            glow: count > 1 ? '#ff88ff' : '#0044ff',
+            size: size,
+            color: color,
+            glow: glow,
             collected: false,
             value: valuePerCrystal
         });
@@ -2228,13 +2253,38 @@ function update() {
                 if (p.y > CANVAS_HEIGHT) p.y = 0;
             }
         }
-        lastTimerUpdate = Date.now();
+
+        // Bosse & Timer einfrieren während Menüs
+        const now = Date.now();
+        const pausedDuration = lastTimerUpdate > 0 ? (now - lastTimerUpdate) : 0;
+        if (typeof enemies !== 'undefined') {
+            for (let i = 0; i < enemies.length; i++) {
+                const e = enemies[i];
+                if (e.stateTimer) e.stateTimer += pausedDuration;
+                if (e.lastAttackTime) e.lastAttackTime += pausedDuration;
+                if (e.lastDamageTime) e.lastDamageTime += pausedDuration;
+            }
+        }
+
+        lastTimerUpdate = now;
         return; // Spiel-Logik pausieren
     }
 
-    // 2. Andere Zustände: Spiel-Logik pausieren
+    // 2. Andere Zustände: Spiel-Logik pausieren & Boss-Timer einfrieren
     if (['PAUSED', 'GAMEOVER', 'LEVEL_UP', 'CHEST_OPEN'].includes(gameState)) {
-        lastTimerUpdate = Date.now();
+        const now = Date.now();
+        const pausedDuration = lastTimerUpdate > 0 ? (now - lastTimerUpdate) : 0;
+
+        if (typeof enemies !== 'undefined') {
+            for (let i = 0; i < enemies.length; i++) {
+                const e = enemies[i];
+                if (e.stateTimer) e.stateTimer += pausedDuration;
+                if (e.lastAttackTime) e.lastAttackTime += pausedDuration;
+                if (e.lastDamageTime) e.lastDamageTime += pausedDuration;
+            }
+        }
+
+        lastTimerUpdate = now;
         return;
     }
 
@@ -2270,10 +2320,10 @@ function update() {
         gridOffsetX = cameraX;
         gridOffsetY = cameraY;
 
-        if (!minibossSpawned && gameTime >= 60) {
+        if (!minibossSpawned && gameTime >= 120) {
             spawnMiniboss();
         }
-        if (!sonerSpawned && gameTime >= 10) { 
+        if (!sonerSpawned && gameTime >= 30) { 
             spawnSoner();
         }
 
@@ -2332,7 +2382,7 @@ function update() {
                     if (!e.state) e.state = 'WALKING';
                     if (!e.stateTimer) e.stateTimer = nowTime;
 
-                    // 1. WALKING: 6 Sekunden lang Verfolgung
+                    // 1. WALKING: 3 Sekunden lang Verfolgung
                     if (e.state === 'WALKING') {
                         if (length > 0) {
                             e.x += (dx / length) * e.speed;
@@ -2347,19 +2397,19 @@ function update() {
                             e.targetY = player.y;
                         }
                     } 
-                    // 2. CHARGING: 1 Sekunde Stillstand & Ziel erfassen
+                    // 2. CHARGING: 0.7 Sekunde Stillstand & Ziel erfassen
                     else if (e.state === 'CHARGING') {
-                        if (nowTime - e.stateTimer > 1000) {
+                        if (nowTime - e.stateTimer > 700) {
                             e.state = 'DASHING';
                             e.stateTimer = nowTime;
                         }
                     } 
-                    // C) DASHING: Mit 3.5-facher Geschwindigkeit auf den Zielpunkt zuschiessen
+                    // 3. DASHING: Mit hoher Geschwindigkeit auf den Zielpunkt zuschiessen
                     else if (e.state === 'DASHING') {
                         const dashDx = e.targetX - e.x;
                         const dashDy = e.targetY - e.y;
                         const dashDist = Math.sqrt(dashDx * dashDx + dashDy * dashDy);
-                        const dashSpeed = e.speed * 10;
+                        const dashSpeed = e.speed * 20;
 
                         // Wenn der Zielpunkt im nächsten Frame erreicht wird:
                         if (dashDist <= dashSpeed || dashDist < 15) {
@@ -2395,7 +2445,7 @@ function update() {
                     }
                 } 
                 // ==========================================
-                // B) ERSTER MINIBOSS (SCHREI-BOSS)
+                // B) ERSTER MINIBOSS (SCHREI-BOSS ZAFER)
                 // ==========================================
                 else {
                     const isScreaming = (nowTime - (e.lastAttackTime || 0)) < 1000;
@@ -2523,6 +2573,12 @@ function update() {
         // --- GEGNER KOLLISION MIT SPIELER ---
         for (let i = enemies.length - 1; i >= 0; i--) {
             const e = enemies[i];
+
+            // Soner macht während Dash & Benommenheit keinen regulären Kontaktschaden
+            if (e.bossType === 'SONER' && (e.state === 'DASHING' || e.state === 'STUNNED')) {
+                continue;
+            }
+
             const dist = Math.sqrt((e.x - player.x) ** 2 + (e.y - player.y) ** 2);
 
             if (dist < e.size + 15) {
@@ -4213,7 +4269,8 @@ function gameLoop() {
             ctx.font = 'bold 14px Arial';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
-            ctx.fillText('MINIBOSS', CANVAS_WIDTH / 2, bossBarY + bossBarH / 2);
+            const bossName = boss.name || (boss.bossType === 'SONER' ? 'Soner' : 'Zafer');
+            ctx.fillText(bossName, CANVAS_WIDTH / 2, bossBarY + bossBarH / 2);
             ctx.textBaseline = 'alphabetic';
         }
 
