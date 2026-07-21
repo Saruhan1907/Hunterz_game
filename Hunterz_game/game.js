@@ -2082,21 +2082,22 @@ function spawnMiniboss() {
         x: bx, 
         y: by, 
         size: size, 
-        baseSize: size, // NEU: Wichtig für den pulsierenden Herzschlag-Effekt
+        baseSize: size,
         speed: enemyBaseSpeed * 1.2, 
         color: '#aa44ff', 
         glow: '#ff88ff',
         angle: 0,
+        attackAngle: 0, // <-- HIER NEU EINGEFÜGT!
+        facingLeft: false, // <-- HIER NEU EINGEFÜGT!
         rotSpeed: 0.005,
         health: hp,
         maxHealth: hp,
         type: 'MINIBOSS',
         xpValue: 500, 
         dropCount: 25,
-        // NEU: Boss-Attacken-Werte
         lastAttackTime: Date.now() - 3000, 
         lastDamageTime: 0,
-        attackCooldown: 3000 // Greift alle 3 Sekunden an (3000 Millisekunden)
+        attackCooldown: 3000
     });
     
     minibossSpawned = true;
@@ -2175,8 +2176,6 @@ function update() {
 
     // 1. Menü-Partikel (laufen in ALLEN Menü-Zuständen inklusive LEADERBOARD)
     if (['MAIN_MENU', 'OPTIONS', 'CHAR_SELECT', 'WEAPON_SELECT', 'LEADERBOARD', 'MENU'].includes(gameState)) {
-        
-        // Nutze explizit mainMenuParticles
         if (typeof mainMenuParticles !== 'undefined') {
             for (const p of mainMenuParticles) {
                 p.x += p.vx;
@@ -2187,7 +2186,6 @@ function update() {
                 if (p.y > CANVAS_HEIGHT) p.y = 0;
             }
         }
-
         lastTimerUpdate = Date.now();
         return; // Spiel-Logik pausieren
     }
@@ -2238,6 +2236,7 @@ function update() {
             player.angle = Math.atan2(mouseY - CANVAS_HEIGHT / 2, mouseX - CANVAS_WIDTH / 2);
         }
 
+        // --- GEGNERKUGELN & EIGENE KUGELN UPDATE ---
         for (let i = bullets.length - 1; i >= 0; i--) {
             const b = bullets[i];
             b.x += b.vx;
@@ -2262,8 +2261,7 @@ function update() {
                     bullets.splice(i, 1);
                     if (player.health <= 0) {
                         player.health = 0;
-                        // Statt nur gameState = 'GAMEOVER'; machst du jetzt:
-                        saveHighscore(score); // <--- HIER den Score speichern
+                        saveHighscore(score);
                         showHighscorePopup();
                         gameState = 'GAMEOVER';
                         if (spawnTimerId) clearInterval(spawnTimerId);
@@ -2273,6 +2271,7 @@ function update() {
             }
         }
 
+        // --- GEGNER BEWEGUNG, LOGIK & ATTACKEN ---
         for (let i = 0; i < enemies.length; i++) {
             const e = enemies[i];
             const dx = player.x - e.x;
@@ -2280,42 +2279,58 @@ function update() {
             const length = Math.sqrt(dx * dx + dy * dy);
             const isScreaming = (Date.now() - (e.lastAttackTime || 0)) < 1000;
 
-            if (length > 0) {
-                if (e.type !== 'MINIBOSS' || !isScreaming) {
+            // --- BEWEGUNG & BLICKRICHTUNG ---
+            if (e.type === 'MINIBOSS') {
+                // Solange er NICHT schreit: Bewegen und Blickrichtung (Spiegelung) anpassen
+                if (!isScreaming) {
+                    if (length > 0) {
+                        e.x += (dx / length) * e.speed;
+                        e.y += (dy / length) * e.speed;
+                    }
+                    e.facingLeft = (dx < 0); // Spiegelt das Sprite nach links
+                }
+            } else {
+                // Normale Gegner-Logik
+                if (length > 0) {
                     e.x += (dx / length) * e.speed;
                     e.y += (dy / length) * e.speed;
                 }
-            }
-
-            if (e.type !== 'MINIBOSS') {
                 e.angle += e.rotSpeed;
-            } else {
-                e.angle = Math.atan2(dy, dx);
             }
 
+            // --- MINIBOSS ATTACKE & SCHADEN ---
             if (e.type === 'MINIBOSS') {
                 if (!e.lastAttackTime) e.lastAttackTime = Date.now();
                 if (!e.lastDamageTime) e.lastDamageTime = 0;
-                const now = Date.now();
+                const nowTime = Date.now();
 
-                if (now - e.lastAttackTime > 6000) {
-                    e.lastAttackTime = now;
+                // Alle 6 Sekunden Schrei auslösen
+                if (nowTime - e.lastAttackTime > 6000) {
+                    e.lastAttackTime = nowTime;
+
+                    // 🎯 TARGET-LOCK: Richtung zum Spieler genau beim Start des Schreis speichern (360 Grad)
+                    e.attackAngle = Math.atan2(player.y - e.y, player.x - e.x);
+                    e.facingLeft = (player.x < e.x);
+
                     try { playBossScreamSound(); } catch (err) {}
                 }
 
-                const timeSinceAttack = now - e.lastAttackTime;
+                const timeSinceAttack = nowTime - e.lastAttackTime;
                 const isScreamingNow = timeSinceAttack > 0 && timeSinceAttack < 1000;
 
                 if (isScreamingNow) {
                     const distToPlayer = Math.sqrt((player.x - e.x)**2 + (player.y - e.y)**2);
+                    
+                    // Exakte 360°-Winkel-Prüfung basierend auf e.attackAngle
                     const angleToPlayer = Math.atan2(player.y - e.y, player.x - e.x);
-                    let angleDiff = Math.abs(angleToPlayer - e.angle);
+                    let angleDiff = Math.abs(angleToPlayer - (e.attackAngle || 0));
                     if (angleDiff > Math.PI) angleDiff = 2 * Math.PI - angleDiff;
 
+                    // Schaden nur, wenn Spieler im fixierten 60°-Kegel (Math.PI / 6) steht
                     if (distToPlayer < 350 && angleDiff < Math.PI / 6) {
-                        if (now - e.lastDamageTime > 100) {
+                        if (nowTime - e.lastDamageTime > 100) {
                             player.health -= 2.5;
-                            e.lastDamageTime = now;
+                            e.lastDamageTime = nowTime;
                             screenDamageFlash = 0.4;
                             createExplosion(player.x, player.y, 5, '#ff4400', '#ff0000', 1);
                         }
@@ -2324,6 +2339,7 @@ function update() {
             }
         }
 
+        // --- TRUHEN KOLLISION ---
         for (let i = 0; i < chests.length; i++) {
             const ch = chests[i];
             if (ch.opened) continue;
@@ -2345,6 +2361,7 @@ function update() {
             }
         }
 
+        // --- SCHUSS-KOLLISION MIT GEGNERN ---
         for (let i = bullets.length - 1; i >= 0; i--) {
             const b = bullets[i];
             let bulletRemoved = false;
@@ -2396,6 +2413,7 @@ function update() {
             if (bulletRemoved) continue;
         }
 
+        // --- GEGNER KOLLISION MIT SPIELER ---
         for (let i = enemies.length - 1; i >= 0; i--) {
             const e = enemies[i];
             const dist = Math.sqrt((e.x - player.x) ** 2 + (e.y - player.y) ** 2);
@@ -2412,10 +2430,10 @@ function update() {
 
                 player.health -= damageToPlayer;
                 screenDamageFlash = 0.4;
-                const now = Date.now();
-                if (now - lastDamageSoundTime > 100) {
+                const nowTime = Date.now();
+                if (nowTime - lastDamageSoundTime > 100) {
                     try { playDamageSound(); } catch (err) {}
-                    lastDamageSoundTime = now;
+                    lastDamageSoundTime = nowTime;
                 }
                 createExplosion(player.x, player.y, 8, '#ff4444', '#ff0000', 2);
 
@@ -2429,8 +2447,7 @@ function update() {
 
                 if (player.health <= 0) {
                     player.health = 0;
-                    // Statt nur gameState = 'GAMEOVER'; machst du jetzt:
-                    saveHighscore(score); // <--- HIER den Score speichern
+                    saveHighscore(score);
                     showHighscorePopup();
                     gameState = 'GAMEOVER';
                     if (spawnTimerId) clearInterval(spawnTimerId);
@@ -2438,6 +2455,7 @@ function update() {
             }
         }
 
+        // --- XP KRISTALLE KOLLISION ---
         const magnetRadius = player.magnetRadius || 100;
         const collectRadius = 15;
 
@@ -2472,6 +2490,7 @@ function update() {
             }
         }
 
+        // --- PARTIKEL UPDATE ---
         for (let i = particles.length - 1; i >= 0; i--) {
             const p = particles[i];
             p.x += p.vx;
@@ -2629,72 +2648,72 @@ function drawEnemy(e) {
     const drawX = e.x - cameraX + CANVAS_WIDTH / 2;
     const drawY = e.y - cameraY + CANVAS_HEIGHT / 2;
     ctx.translate(drawX, drawY);
-    ctx.rotate(e.angle);
+
     const s = e.size;
 
-    // ===== NEU: MINIBOSS BILD & HERZSCHLAG & SCHREI-EFFEKT =====
     if (e.type === 'MINIBOSS') {
         const hpRatio = e.health / e.maxHealth;
         const pulseSpeed = 100 + (hpRatio * 200); 
         const pulse = Math.sin(Date.now() / pulseSpeed) * 0.15; 
         const currentSize = e.baseSize * (1 + pulse); 
-        const imgW = currentSize * 1.9; // Breite des Bildes
-        const imgH = currentSize * 2.2; // Höhe des Bildes (soldatiger / hochkant)
+        const imgW = currentSize * 1.9;
+        const imgH = currentSize * 2.2;
 
-        // Prüfen, ob der Boss gerade "schreit" (Dauer jetzt 1000ms)
         const timeSinceAttack = Date.now() - (e.lastAttackTime || 0);
         const isScreaming = timeSinceAttack > 0 && timeSinceAttack < 1000;
 
-        // 1. Schrei-Kegel mit "Schallwellen-Effekt"
-if (isScreaming) {
-    ctx.save();
-    
-    // Kegel-Grundform
-    ctx.beginPath();
-    ctx.moveTo(0, 0);
-    ctx.lineTo(Math.cos(-Math.PI / 6) * 350, Math.sin(-Math.PI / 6) * 350);
-    ctx.lineTo(Math.cos(Math.PI / 6) * 350, Math.sin(Math.PI / 6) * 350);
-    ctx.closePath();
-    ctx.fillStyle = 'rgba(255, 0, 0, 0.25)';
-    ctx.fill();
+        // 1. SCHREI-KEGEL (Zeichnet 360° in Richtung e.attackAngle)
+        if (isScreaming) {
+            ctx.save();
+            ctx.rotate(e.attackAngle || 0); // Kegel in fest angepeilte Richtung drehen
+            
+            // Kegel-Grundform
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.lineTo(Math.cos(-Math.PI / 6) * 350, Math.sin(-Math.PI / 6) * 350);
+            ctx.lineTo(Math.cos(Math.PI / 6) * 350, Math.sin(Math.PI / 6) * 350);
+            ctx.closePath();
+            ctx.fillStyle = 'rgba(255, 0, 0, 0.25)';
+            ctx.fill();
 
-    // SCHALLWELLEN-EFFEKT:
-    // Wir zeichnen 3 weiße Bögen, die vom Boss weg nach außen driften
-    const time = Date.now() % 1000; // 0 bis 1000ms
-    const waveProgress = time / 1000; // Fortschritt 0.0 bis 1.0
+            // Schallwellen
+            const time = Date.now() % 1000;
+            const waveProgress = time / 1000;
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
+            ctx.lineWidth = 2;
 
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
-    ctx.lineWidth = 2;
+            for (let i = 1; i <= 3; i++) {
+                const waveDist = (waveProgress * 350 + (i * 130)) % 350;
+                ctx.beginPath();
+                ctx.arc(0, 0, waveDist, -Math.PI / 6, Math.PI / 6);
+                ctx.stroke();
+            }
+            ctx.restore();
+        }
 
-    for (let i = 1; i <= 3; i++) {
-        // Die Welle startet beim Boss und wandert bis zum Ende (400px)
-        const waveDist = (waveProgress * 350 + (i * 130)) % 350;
-        
-        ctx.beginPath();
-        // Wir zeichnen einen Bogen, der den Kegel schneidet
-        ctx.arc(0, 0, waveDist, -Math.PI / 6, Math.PI / 6);
-        ctx.stroke();
-    }
-    ctx.restore();
-}
+        // 2. BOSS SPRITE (Spiegelt sich sauber nur nach links/rechts)
+        ctx.save();
+        if (e.facingLeft) {
+            ctx.scale(-1, 1);
+        }
 
-        // 2. Boss zeichnen
         ctx.shadowBlur = isScreaming ? 60 : 40;
         ctx.shadowColor = isScreaming ? '#ff0000' : (e.glow || '#9900ff');
 
         if (minibossSprite.complete && minibossSprite.naturalWidth !== 0) {
             ctx.drawImage(minibossSprite, -imgW / 2, -imgH / 2, imgW, imgH);
         } else {
-            // Falls kein Bild geladen ist, zeichnen wir ein Rechteck, das auch hochkant ist
             ctx.fillStyle = e.color || '#9900ff';
             ctx.fillRect(-imgW / 2, -imgH / 2, imgW, imgH);
-}
+        }
+        ctx.restore();
         
         ctx.restore();
         return; 
     }
 
     // --- ALTE LOGIK FÜR NORMALE GEGNER ---
+    ctx.rotate(e.angle);
     let colorStart = '#ff6666';
     let colorMid = '#ff3333';
     let colorEnd = '#880000';

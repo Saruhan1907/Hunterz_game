@@ -1,4 +1,3 @@
-// dashboard.js
 import { db } from './firebase-config.js';
 import { collection, getDocs } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
@@ -14,12 +13,20 @@ function formatTime(seconds) {
     return `${mins}:${secs}`;
 }
 
-// Hilfsfunktion: Bereinigt Übersetzungen falls der Key nicht existiert
+// Hilfsfunktion: Wandelt DB-Werte sauber in JSON-Übersetzungsschlüssel um
 function getTranslatedValue(category, value) {
     if (!value || value === '-') return '-';
-    const key = `${category}.${value}`;
+    
+    // Falls in Firestore noch 'Sniper' steht, verweisen wir auf den korrekten JSON-Key 'Scharfschützengewehr'
+    let valKey = value;
+    if (valKey === 'Sniper') {
+        valKey = 'Scharfschützengewehr';
+    }
+
+    const key = `${category}.${valKey}`;
     const translated = window.t(key);
-    // Falls keine Übersetzung da ist, gibt window.t den Key zurück -> wir filtern das raus
+    
+    // Falls keine Übersetzung existiert, gibt window.t den Key zurück -> Fallback auf Ursprungswert
     if (translated === key) return value; 
     return translated;
 }
@@ -85,7 +92,7 @@ function renderTable() {
         let dateStr = item.timestamp?.toDate ? item.timestamp.toDate().toLocaleDateString('de-DE') : "-";
         const rankClass = (item.rank && item.rank <= 3) ? `rank-${item.rank}` : '';
 
-        // Saubere Übersetzung mit Fallback
+        // Saubere dynamische Übersetzung über game_values.Scharfschützengewehr
         const translatedClass = getTranslatedValue('game_values', item.characterClass);
         const translatedWeapon = getTranslatedValue('game_values', item.weapon);
 

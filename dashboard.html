@@ -22,13 +22,15 @@
             <div class="d-flex gap-3 align-items-center">
                 <!-- Menü Dropdown -->
                 <div class="dropdown">
+                    <!-- style="min-width: 165px;" sorgt für die perfekte Breite passend zum Dropdown -->
                     <button class="btn btn-outline-light dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" style="min-width: 165px;">
                         <span data-i18n="menu-btn-text">Menü</span>
                     </button>
+                    <!-- Hier setzen wir ebenfalls min-width: 165px; damit beide exakt übereinstimmen -->
                     <ul class="dropdown-menu dropdown-menu-dark" style="min-width: 165px;">
                         <li><a class="dropdown-item d-flex align-items-center" href="index.html"><i class="bi bi-house-door text-accent me-2"></i> <span data-i18n="menu-home">Home</span></a></li>
                         <li><hr class="dropdown-divider"></li>
-                        <li><a class="dropdown-item d-flex align-items-center" href="game/index.html"><i class="bi bi-controller text-accent me-2"></i> <span data-i18n="menu-game">Game</span></a></li>
+                        <li><a class="dropdown-item d-flex align-items-center" href="game/index.html" target="_blank" rel="noopener noreferrer"><i class="bi bi-controller text-accent me-2"></i> <span data-i18n="menu-game">Game</span></a></li>
                         <li><a class="dropdown-item d-flex align-items-center" href="dashboard.html"><i class="bi bi-graph-up text-accent me-2"></i> <span data-i18n="menu-dashboard">Dashboard</span></a></li>
                         <li><hr class="dropdown-divider"></li>
                         <li><a class="dropdown-item d-flex align-items-center" href="playground.html"><i class="bi bi-cpu text-accent me-2"></i> <span data-i18n="menu-playground">Playground</span></a></li>

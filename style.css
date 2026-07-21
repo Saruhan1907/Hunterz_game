@@ -265,7 +265,36 @@ footer p {
 }
 
 /* ==========================================================================
-   8. MOBILE OPTIMIERUNG (Kompakter & Schmaler)
+   8. LINK-STYLES (PLAYGROUND & GLOBALE LINKS)
+   ========================================================================== */
+/* Allgemein: Keine Unterstreichung, Akzentfarbe */
+a {
+    color: var(--accent);
+    text-decoration: none;
+    transition: color 0.2s ease-in-out, text-decoration 0.2s ease-in-out;
+}
+
+/* Hover-Zustand: Erst beim Drüberfahren unterstrichen */
+a:hover {
+    color: var(--accent) !important;
+    text-decoration: underline !important;
+}
+
+/* Speziell für Links innerhalb von Cards (z. B. Playground Quick-Links) */
+.hover-card a,
+.card a {
+    color: #fff; /* Standardmäßig weiß für cleanen Look */
+    text-decoration: none !important;
+}
+
+.hover-card a:hover,
+.card a:hover {
+    color: var(--accent) !important; /* Leuchtet auf Hover in Neon */
+    text-decoration: underline !important;
+}
+
+/* ==========================================================================
+   9. MOBILE OPTIMIERUNG (Kompakter & Schmaler)
    ========================================================================== */
 @media (max-width: 768px) {
     /* Karten-Innenabstände verkleinern */
