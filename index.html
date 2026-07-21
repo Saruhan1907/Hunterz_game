@@ -5,18 +5,18 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>devz-solutions | Playground</title>
     
-    <!-- Bootstrap 5 -->
+    <!-- 1. WICHTIG: Das Bootstrap 5 CSS (Das hat eben gefehlt!) -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <!-- Bootstrap Icons -->
+    
+    <!-- 2. Bootstrap Icons -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
-    <!-- HIER DEIN NEUES ZENTRALES STYLESHEET -->
+    
+    <!-- 3. Dein eigenes Stylesheet -->
     <link rel="stylesheet" href="style.css">
 
+    <!-- Google Analytics -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-97T8B1FEPQ"></script>
     <script>window.dataLayer = window.dataLayer || []; function gtag(){dataLayer.push(arguments);} gtag('js', new Date()); gtag('config', 'G-97T8B1FEPQ');</script>
-    
-    <!-- WICHTIG: Du brauchst das Bootstrap JS für das Dropdown -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </head>
 <body>
 
@@ -144,62 +144,63 @@
                 <div class="row mt-0 mb-4">
                     <div class="col-12">
                         <div class="p-5 rounded-3 hover-card" style="background: rgba(255,255,255,0.05);">
-                            <!-- Über mich Überschrift jetzt in ACCENT -->
+                            <!-- Über mich Überschrift -->
                             <div class="d-flex align-items-center gap-2 mb-4">
                                 <i class="bi bi-person-workspace text-accent fs-3"></i>
                                 <h2 class="m-0 text-accent" data-i18n="about-title">Über mich</h2>
                             </div>
                             
-                            <!-- Text jetzt in WEISS -->
+                            <!-- Text -->
                             <p class="fs-5 text-white" data-i18n="about-text">
                                 [Hier kommt der neue Text hin]
                             </p>
                             
-                            <!-- NUR diese "Tech Stack & Tools" Überschrift bekommt die ACCENT Farbe -->
+                            <!-- Tech Stack Überschrift -->
                             <div class="d-flex align-items-center gap-2 mt-5 mb-4 border-bottom pb-2" style="border-color: var(--accent) !important;">
                                 <i class="bi bi-stack text-accent fs-3"></i>
                                 <h2 class="text-accent fw-bold m-0" data-i18n="skills-main-title">Tech Stack & Tools</h2>
                             </div>
                             
-                            <!-- Alles ab hier bleibt genau so, wie es auf deinem Screenshot war -->
                             <div class="mt-4">
+                                <!-- Web, App & Backend -->
                                 <h5 class="text-light mb-3" data-i18n="skills-web">Web, App & Backend</h5>
                                 <div class="d-flex flex-wrap gap-2 mb-4">
-                                    <span class="badge bg-dark border border-accent text-accent">HTML5</span>
-                                    <span class="badge bg-dark border border-accent text-accent">CSS3</span>
-                                    <span class="badge bg-dark border border-accent text-accent">JavaScript</span>
-                                    <span class="badge bg-dark border border-accent text-accent">Node.js</span>
-                                    <span class="badge bg-dark border border-accent text-accent">REST APIs</span>
-                                    <span class="badge bg-dark border border-accent text-accent">Firebase</span>
-                                    <span class="badge bg-dark border border-accent text-accent">Vue.js</span>
-                                    <span class="badge bg-dark border border-accent text-accent">Bootstrap</span>
-                                    <!-- NEU HINZUGEFÜGT -->
-                                    <span class="badge bg-dark border border-accent text-accent">Data Aggregation</span>
-                                    <span class="badge bg-dark border border-accent text-accent">Data Visualization</span>
-                                    <span class="badge bg-dark border border-accent text-accent">Dynamic State</span>
+                                    <span class="badge bg-dark border border-accent text-accent skill-badge" tabindex="0" data-badge="html5">HTML5</span>
+                                    <span class="badge bg-dark border border-accent text-accent skill-badge" tabindex="0" data-badge="css3">CSS3</span>
+                                    <span class="badge bg-dark border border-accent text-accent skill-badge" tabindex="0" data-badge="javascript">JavaScript</span>
+                                    <span class="badge bg-dark border border-accent text-accent skill-badge" tabindex="0" data-badge="nodejs">Node.js</span>
+                                    <span class="badge bg-dark border border-accent text-accent skill-badge" tabindex="0" data-badge="restapi">REST APIs</span>
+                                    <span class="badge bg-dark border border-accent text-accent skill-badge" tabindex="0" data-badge="firebase">Firebase</span>
+                                    <span class="badge bg-dark border border-accent text-accent skill-badge" tabindex="0" data-badge="vuejs">Vue.js</span>
+                                    <span class="badge bg-dark border border-accent text-accent skill-badge" tabindex="0" data-badge="bootstrap">Bootstrap</span>
+                                    <span class="badge bg-dark border border-accent text-accent skill-badge" tabindex="0" data-badge="data_aggregation">Data Aggregation</span>
+                                    <span class="badge bg-dark border border-accent text-accent skill-badge" tabindex="0" data-badge="data_vis">Data Visualization</span>
+                                    <span class="badge bg-dark border border-accent text-accent skill-badge" tabindex="0" data-badge="dynamic_state">Dynamic State</span>
                                 </div>
 
+                                <!-- Entwicklung & Infrastruktur -->
                                 <h5 class="text-light mb-3" data-i18n="skills-infra">Entwicklung & Infrastruktur</h5>
                                 <div class="d-flex flex-wrap gap-2 mb-4">
-                                    <span class="badge bg-dark border border-accent text-accent">Python</span>
-                                    <span class="badge bg-dark border border-accent text-accent">Java</span>
-                                    <span class="badge bg-dark border border-accent text-accent">C#</span>
-                                    <span class="badge bg-dark border border-accent text-accent">PHP</span> <!-- HIER HINZUGEFÜGT -->
-                                    <span class="badge bg-dark border border-accent text-accent">SQL & NoSQL</span>
-                                    <span class="badge bg-dark border border-accent text-accent">Git</span>
-                                    <span class="badge bg-dark border border-accent text-accent">Docker</span>
-                                    <span class="badge bg-dark border border-accent text-accent">Virtualisation</span>
+                                    <span class="badge bg-dark border border-accent text-accent skill-badge" tabindex="0" data-badge="python">Python</span>
+                                    <span class="badge bg-dark border border-accent text-accent skill-badge" tabindex="0" data-badge="java">Java</span>
+                                    <span class="badge bg-dark border border-accent text-accent skill-badge" tabindex="0" data-badge="csharp">C#</span>
+                                    <span class="badge bg-dark border border-accent text-accent skill-badge" tabindex="0" data-badge="php">PHP</span>
+                                    <span class="badge bg-dark border border-accent text-accent skill-badge" tabindex="0" data-badge="sql">SQL & NoSQL</span>
+                                    <span class="badge bg-dark border border-accent text-accent skill-badge" tabindex="0" data-badge="git">Git</span>
+                                    <span class="badge bg-dark border border-accent text-accent skill-badge" tabindex="0" data-badge="docker">Docker</span>
+                                    <span class="badge bg-dark border border-accent text-accent skill-badge" tabindex="0" data-badge="virtualisation">Virtualisation</span>
                                 </div>
 
+                                <!-- Workflow, KI & Kreatives -->
                                 <h5 class="text-light mb-3" data-i18n="skills-workflow">Workflow, KI & Kreatives</h5>
                                 <div class="d-flex flex-wrap gap-2">
-                                    <span class="badge bg-dark border border-accent text-accent">VS Code</span>
-                                    <span class="badge bg-dark border border-accent text-accent">Debugging</span> <!-- HIER NEU -->
-                                    <span class="badge bg-dark border border-accent text-accent">Agile PM / Jira</span>
-                                    <span class="badge bg-dark border border-accent text-accent">KI-Tools / AI Literacy</span>
-                                    <span class="badge bg-dark border border-accent text-accent">Canva</span>
-                                    <span class="badge bg-dark border border-accent text-accent">3D-Print & Slicer</span>
-                                    <span class="badge bg-dark border border-accent text-accent">Dokumentation</span>
+                                    <span class="badge bg-dark border border-accent text-accent skill-badge" tabindex="0" data-badge="vscode">VS Code</span>
+                                    <span class="badge bg-dark border border-accent text-accent skill-badge" tabindex="0" data-badge="debugging">Debugging</span>
+                                    <span class="badge bg-dark border border-accent text-accent skill-badge" tabindex="0" data-badge="agile">Agile PM / Jira</span>
+                                    <span class="badge bg-dark border border-accent text-accent skill-badge" tabindex="0" data-badge="ai">KI-Tools / AI Literacy</span>
+                                    <span class="badge bg-dark border border-accent text-accent skill-badge" tabindex="0" data-badge="canva">Canva</span>
+                                    <span class="badge bg-dark border border-accent text-accent skill-badge" tabindex="0" data-badge="slicer">3D-Print & Slicer</span>
+                                    <span class="badge bg-dark border border-accent text-accent skill-badge" tabindex="0" data-badge="docu">Dokumentation</span>
                                 </div>
                             </div>
                         </div>
@@ -250,14 +251,11 @@
             <p data-i18n="footer-text">&copy; 2026 devz.solutions | Built with Passion.</p>
         </div>
     </footer>
-    <!-- i18next Library -->
-    <script src="https://unpkg.com/i18next@latest/dist/umd/i18next.min.js"></script>
-    <!-- i18next Backend (zum Laden der JSON-Dateien) -->
-    <script src="https://unpkg.com/i18next-http-backend@latest/dist/umd/i18nextHttpBackend.min.js"></script>
-
+    <!-- Richtig (mit bundle): -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <!-- Danach erst deine eigenen Skripte in der richtigen Reihenfolge: -->
     <!-- Partikel-Effekt für den Hintergrund -->
     <script src="particles.js"></script>
-    <script src="../translate.js"></script>
+    <script src="translate.js"></script>
 </body>
 </html>

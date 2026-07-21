@@ -419,3 +419,54 @@ a.btn-neon:hover {
     color: #000000 !important;
     text-decoration: none !important;
 }
+
+/* ==========================================================================
+   11. INTERAKTIVE SKILL BADGES & POPOVERS
+   ========================================================================== */
+.skill-badge {
+    cursor: pointer !important;
+    user-select: none;
+}
+
+/* Dark Neon Popover Box Styling */
+.popover {
+    background-color: var(--card-bg) !important;
+    border: 1px solid var(--accent) !important;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.6);
+    max-width: 280px;
+}
+
+.popover-body {
+    color: #ffffff !important;
+    font-size: 0.85rem;
+    line-height: 1.4;
+    padding: 10px 14px;
+}
+
+/* Pfeile der Popover-Boxen in Akzentfarbe & Hintergründe anpassen */
+.bs-popover-top > .popover-arrow::after,
+.bs-popover-auto[data-popper-placement^="top"] > .popover-arrow::after {
+    border-top-color: var(--card-bg) !important;
+}
+.bs-popover-top > .popover-arrow::before,
+.bs-popover-auto[data-popper-placement^="top"] > .popover-arrow::before {
+    border-top-color: var(--accent) !important;
+}
+
+.bs-popover-bottom > .popover-arrow::after,
+.bs-popover-auto[data-popper-placement^="bottom"] > .popover-arrow::after {
+    border-bottom-color: var(--card-bg) !important;
+}
+.bs-popover-bottom > .popover-arrow::before,
+.bs-popover-auto[data-popper-placement^="bottom"] > .popover-arrow::before {
+    border-bottom-color: var(--accent) !important;
+}
+/* Erlaubt Dropdowns über die Grenzen von Header/Navbar hinauszuragen */
+header, nav, .navbar, .dropdown {
+    overflow: visible !important;
+}
+
+/* Stellt sicher, dass Dropdown-Menüs & Popovers immer ganz oben schweben */
+.dropdown-menu, .popover {
+    z-index: 1050 !important;
+}
