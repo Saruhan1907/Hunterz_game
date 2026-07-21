@@ -33,6 +33,53 @@ let isMobile = false;
 // ===== SPIEL-ZUSTÄNDE =====
 let gameState = 'MAIN_MENU'; // 'MAIN_MENU' | 'OPTIONS' | 'CHAR_SELECT' | 'WEAPON_SELECT' | 'PLAYING' | 'PAUSED' | 'LEVEL_UP' | 'GAMEOVER'
 
+// ===== DEV MENU STATE =====
+let devMenuOpen = false;
+let isGodMode = false;
+
+// 8-Tap Trigger Variablen für Mobile
+let tapCount = 0;
+let lastTapTime = 0;
+
+// Funktion zum Öffnen / Schließen des Dev-Menüs
+function toggleDevMenu(forceState) {
+    const devOverlay = document.getElementById('devMenuOverlay');
+    if (!devOverlay) return;
+
+    devMenuOpen = (typeof forceState === 'boolean') ? forceState : !devMenuOpen;
+    devOverlay.style.display = devMenuOpen ? 'flex' : 'none';
+
+    // Wenn das Menü geöffnet wird, aktuelle Werte in der UI anzeigen
+    if (devMenuOpen) {
+        updateDevMenuUI();
+    }
+}
+
+// Hilfsfunktion: Hält Buttons & Slider im Dev-Menü aktuell
+function updateDevMenuUI() {
+    const godBtn = document.getElementById('godModeBtn');
+    if (godBtn) {
+        godBtn.innerText = isGodMode ? 'ON' : 'OFF';
+        godBtn.style.backgroundColor = isGodMode ? '#2ecc71' : '#e74c3c';
+    }
+
+    if (player) {
+        const dmgSlider = document.getElementById('dmgMultSlider');
+        const dmgVal = document.getElementById('dmgMultVal');
+        if (dmgSlider && dmgVal) {
+            dmgSlider.value = player.damageMultiplier || 1;
+            dmgVal.innerText = (player.damageMultiplier || 1) + 'x';
+        }
+
+        const xpSlider = document.getElementById('xpMultSlider');
+        const xpVal = document.getElementById('xpMultVal');
+        if (xpSlider && xpVal) {
+            xpSlider.value = player.xpMultiplier || 1;
+            xpVal.innerText = (player.xpMultiplier || 1) + 'x';
+        }
+    }
+}
+
 // ===== CHARACTER-DEFINITIONEN =====
 const CHARACTERS = {
     WEAPON_SPECIALIST: {
@@ -652,11 +699,21 @@ function selectWeapon(weaponClass) {
 }
 
 function goBackToMenu() {
-    gameState = 'MAIN_MENU';
-    resetGameState();
+    // 1. Nutze deinen neuen umfassenden Reset für Spielvariablen & Loops
+    if (typeof returnToMainMenu === 'function') {
+        returnToMainMenu();
+    } else {
+        gameState = 'MAIN_MENU';
+    }
+
+    // 2. Setze Charakter- und Klassenwahl zurück, damit man neu wählen kann
     selectedClass = null;
     selectedCharacter = null;
-    initMainMenuParticles();
+    
+    // 3. Menü-Partikel neu initialisieren (falls vorhanden)
+    if (typeof initMainMenuParticles === 'function') {
+        initMainMenuParticles();
+    }
 }
 
 // ===== RARITÄTEN =====
@@ -782,6 +839,9 @@ function applyLevelUp(index) {
 
 // ===== TOUCH-EVENTS =====
 function handleTouchStart(e) {
+    // Falls das Dev-Menü offen ist, Touches auf dem Canvas ignorieren
+    if (devMenuOpen) return;
+
     e.preventDefault();
     isMobile = true;
     const rect = canvas.getBoundingClientRect();
@@ -818,7 +878,6 @@ function handleTouchStart(e) {
                     const lb = document.getElementById('leaderboardOverlay');
                     if (lb) lb.style.display = 'flex';
                     
-                    // KORREKTUR 1: Daten laden beim Öffnen
                     if (typeof fetchTopHighscores === 'function') {
                         fetchTopHighscores(renderLeaderboard);
                     }
@@ -829,7 +888,6 @@ function handleTouchStart(e) {
         return;
     }
 
-    // KORREKTUR 2: Blockiert, dass Touch-Events im Highscore-Menü in die Gameplay-Steuerung rutschen
     if (gameState === 'LEADERBOARD') {
         return;
     }
@@ -1041,6 +1099,7 @@ function handleTouchStart(e) {
         return;
     }
 
+    // ===== PAUSED STATE (Touch + 8-Tap Trigger) =====
     if (gameState === 'PAUSED') {
         const cx = CANVAS_WIDTH / 2;
         const bw = 260;
@@ -1056,6 +1115,24 @@ function handleTouchStart(e) {
             const tx = touch.clientX - rect.left;
             const ty = touch.clientY - rect.top;
 
+            // 8-TAP DETEKTION: Touch auf den PAUSE-Titelbereich über dem 1. Button
+            if (tx >= cx - 180 && tx <= cx + 180 && ty >= contY - 140 && ty <= contY - 10) {
+                const now = Date.now();
+                if (now - lastTapTime < 500) {
+                    tapCount++;
+                } else {
+                    tapCount = 1;
+                }
+                lastTapTime = now;
+
+                if (tapCount >= 8) {
+                    tapCount = 0;
+                    toggleDevMenu(true); // Öffnet Dev Menü bei 8 schnellen Taps
+                }
+                return;
+            }
+
+            // Normale Pause-Buttons:
             if (tx >= bx && tx <= bx + bw && ty >= contY && ty <= contY + bh) { 
                 playClickSound();
                 gameState = 'PLAYING'; 
@@ -1131,6 +1208,8 @@ function handleTouchStart(e) {
 }
 
 function handleTouchMove(e) {
+    if (devMenuOpen) return;
+
     if (isDraggingVolume) {
         e.preventDefault();
         const rect = canvas.getBoundingClientRect();
@@ -1141,10 +1220,8 @@ function handleTouchMove(e) {
         const sliderX = leftX + 30;
         const sliderW = 300;
 
-        // NEU: Direkte Berechnung beim Ziehen
         let newVol = (tx - sliderX) / sliderW;
-        masterVolume = Math.max(0, Math.min(1, newVol)); // Verhindert, dass der Balken über den Rand hinausgeht
-        
+        masterVolume = Math.max(0, Math.min(1, newVol));
         return; 
     }
     e.preventDefault();
@@ -1154,13 +1231,11 @@ function handleTouchMove(e) {
         const tx = touch.clientX - rect.left;
         const ty = touch.clientY - rect.top;
 
-        // Bewegung linker Stick
         if (touch.identifier === touchJoystickId) {
             updateJoystickPosition(tx, ty);
             setJoystickDirection(tx, ty);
         }
 
-        // Bewegung rechter Stick (Zielen)
         if (touch.identifier === touchFireId) {
             updateAimJoystickPosition(tx, ty);
         }
@@ -1168,12 +1243,13 @@ function handleTouchMove(e) {
 }
 
 function handleTouchEnd(e) {
+    if (devMenuOpen) return;
+
     isDraggingVolume = false;
     e.preventDefault();
     for (let i = 0; i < e.changedTouches.length; i++) {
         const touch = e.changedTouches[i];
 
-        // Linker Stick losgelassen
         if (touch.identifier === touchJoystickId) {
             touchJoystickLastAngle = player.angle;
             touchJoystickActive = false;
@@ -1184,12 +1260,9 @@ function handleTouchEnd(e) {
             player.vy = 0;
         }
 
-        // ===== HIER ERSETZEN: Rechter Stick losgelassen (Feuern stoppen) =====
         if (touch.identifier === touchFireId) {
             touchFireActive = false;
             touchFireId = -1;
-            
-            // NEU: Setzt den inneren Knopf visuell wieder genau in die Mitte zurück, wenn man loslässt
             touchFireX = 0;
             touchFireY = 0;
         }
@@ -1290,12 +1363,25 @@ window.addEventListener('keydown', (e) => {
         return; // Beendet die Funktion sofort, damit das Spiel keine Tasten abfängt
     }
 
+    // DEV-MENU SHORTCUT (F8)
+    if (e.key === 'F8') {
+        e.preventDefault();
+        toggleDevMenu();
+        return;
+    }
+
     const key = e.key.toLowerCase();
 
     // 1. ESCAPE-LOGIK (Die wichtigste, zuerst!)
     if (key === 'escape') {
         playClickSound(); // Sound abspielen
         
+        // ZUERST DEV-MENÜ SCHLIESSEN (falls offen)
+        if (devMenuOpen) {
+            toggleDevMenu(false);
+            return;
+        }
+
         if (gameState === 'LEADERBOARD') {
             const lb = document.getElementById('leaderboardOverlay');
             if (lb) lb.style.display = 'none';
@@ -1407,8 +1493,9 @@ canvas.addEventListener('mousemove', (e) => {
     }
 
     if (isMobile) return; // Auf Touchscreens gibt es keinen echten Hover
-    if (gameState === 'LEADERBOARD') return; // Keine Hover-Effekte unter dem Overlay
     
+    // ❌ HIER WAR FRÜHER DIE SPPERRE: if (gameState === 'LEADERBOARD') return; (Wurde entfernt!)
+
     let currentHover = null;
 
     if (gameState === 'MAIN_MENU') {
@@ -1454,7 +1541,10 @@ canvas.addEventListener('mousemove', (e) => {
         } 
         else if (mouseX >= cx - btnW/2 && mouseX <= cx + btnW/2) {
             if (mouseY >= btnY && mouseY <= btnY + btnH) {
-                currentHover = 'char_confirm';
+                // Nur Hover-Effekt zulassen, wenn Char 1 (Index 0) aktiv ist
+                if (window.currentCharViewIndex === 0) {
+                    currentHover = 'char_confirm';
+                }
             } else if (mouseY >= backY && mouseY <= backY + btnH) {
                 currentHover = 'char_back';
             }
@@ -1541,8 +1631,16 @@ canvas.addEventListener('mousemove', (e) => {
         if (mouseX >= sliderX - 15 && mouseX <= sliderX + sliderW + 15 && mouseY >= sliderY - 15 && mouseY <= sliderY + sliderH + 15) {
             currentHover = 'options_slider';
         }
+    // ✅ NEU: HOVER-PRÜFUNG FÜR LEADERBOARD / HIGHSCORE ZURÜCK-BUTTON
+    } else if (gameState === 'LEADERBOARD') {
+        // Koordinaten deines Zurück-Buttons (Bspw. oben links wie bei OPTIONS):
+        const backBtnX = 20, backBtnY = 20, backBtnW = 160, backBtnH = 52;
+        if (mouseX >= backBtnX && mouseX <= backBtnX + backBtnW && mouseY >= backBtnY && mouseY <= backBtnY + backBtnH) {
+            currentHover = 'leaderboard_back';
+        }
     }
 
+    // Spielt den Ton ab, sobald die Maus neu über ein Element fährt
     if (currentHover !== lastHoveredElement && currentHover !== null) {
         if (typeof playHoverSound === 'function') playHoverSound();
     }
@@ -1589,6 +1687,9 @@ canvas.addEventListener('mouseup', (e) => {
 canvas.addEventListener('click', (e) => {
     ensureAudio(); // Audio explizit aktivieren
 
+    // Falls das Dev-Menü offen ist, Klicks auf dem Canvas ignorieren
+    if (devMenuOpen) return;
+
     const rect = canvas.getBoundingClientRect();
     const clickX = e.clientX - rect.left;
     const clickY = e.clientY - rect.top;
@@ -1623,7 +1724,7 @@ canvas.addEventListener('click', (e) => {
                 const lb = document.getElementById('leaderboardOverlay');
                 if (lb) lb.style.display = 'flex';
                 
-                // KORREKTUR 1: Highscore-Daten abrufen
+                // Highscore-Daten abrufen
                 if (typeof fetchTopHighscores === 'function') {
                     fetchTopHighscores(renderLeaderboard);
                 }
@@ -1633,80 +1734,86 @@ canvas.addEventListener('click', (e) => {
         return;
     }
 
-    // KORREKTUR 2: LEADERBOARD-Zustand abfangen
+    // LEADERBOARD-Zustand abfangen
     if (gameState === 'LEADERBOARD') {
         return;
     }
 
+    // ===== CHARACTER SELECT =====
     if (gameState === 'CHAR_SELECT') {
         const cx = CANVAS_WIDTH / 2;
         const cy = CANVAS_HEIGHT / 2 - 40;
         const cardWidth = Math.min(320, CANVAS_WIDTH * 0.6);
         const cardHeight = Math.min(440, CANVAS_HEIGHT * 0.55);
         
-        // Exakt dieselben Werte wie beim Zeichnen!
         const arrowDist = cardWidth / 2 + 60;
         const btnW = 240; const btnH = 50;
         const btnY = cy + cardHeight / 2 + 50;
         const backY = btnY + btnH + 15;
 
-        // WICHTIG: Die Abfrage-Reihenfolge ist entscheidend
-        // Wir prüfen zuerst, ob einer der Pfeile getroffen wurde
+        // Pfeil Links
         if (Math.hypot(clickX - (cx - arrowDist), clickY - cy) < 40) {
             playClickSound();
             window.currentCharViewIndex = (window.currentCharViewIndex - 1 < 0) ? 2 : window.currentCharViewIndex - 1;
         } 
+        // Pfeil Rechts
         else if (Math.hypot(clickX - (cx + arrowDist), clickY - cy) < 40) {
             playClickSound();
             window.currentCharViewIndex = (window.currentCharViewIndex + 1 > 2) ? 0 : window.currentCharViewIndex + 1;
         } 
-        // Dann prüfen wir die Buttons
+        // Auswählen Button
         else if (clickX >= cx - btnW/2 && clickX <= cx + btnW/2 && clickY >= btnY && clickY <= btnY + btnH) {
-            // Auswählen
-            if (window.currentCharViewIndex === 0) {
-                playClickSound();
-                gameState = 'WEAPON_SELECT';
+            // 🔒 SPPERRE: Falls nicht der 1. Char (Index 0) aktiv ist, den Klick ignorieren!
+            if (window.currentCharViewIndex !== 0) {
+                return; 
             }
-        }
-        else if (clickX >= cx - btnW/2 && clickX <= cx + btnW/2 && clickY >= backY && clickY <= backY + btnH) {
-            // Zurück
+
             playClickSound();
-            gameState = 'MAIN_MENU';
+            gameState = 'WEAPON_SELECT';
+        }
+        // Zurück Button
+        else if (clickX >= cx - btnW/2 && clickX <= cx + btnW/2 && clickY >= backY && clickY <= backY + btnH) {
+            playClickSound();
+            goBackToMenu();
         }
         
-        // Return verhindert, dass der Klick "durchfällt" in andere Menüs
         return; 
     }
 
+    // ===== WEAPON SELECT =====
     if (gameState === 'WEAPON_SELECT') {
         const cx = CANVAS_WIDTH / 2;
         const cy = CANVAS_HEIGHT / 2 - 40;
         const cardWidth = Math.min(320, CANVAS_WIDTH * 0.6);
-        const cardHeight = Math.min(440, CANVAS_HEIGHT * 0.55);
+        const cardHeight = Math.min(440, CANVAS_HEIGHT * 0.55); // ✅ FIX: cardHeight eingefügt
+        
         const arrowDist = cardWidth / 2 + 60;
         const btnW = 240; const btnH = 50;
-        const btnY = cy + cardHeight / 2 + 50;
+        const btnY = cy + cardHeight / 2 + 50; // ✅ FIX: cardHeight statt cardWidth genutzt!
         const backY = btnY + btnH + 15;
         const classes = [CLASSES.SNIPER, CLASSES.MACHINEGUN, CLASSES.SHOTGUN];
 
-        // Pfeile
+        // Pfeil Links
         if (Math.hypot(clickX - (cx - arrowDist), clickY - cy) < 40) {
             playClickSound();
             currentWeaponViewIndex = (currentWeaponViewIndex - 1 < 0) ? 2 : currentWeaponViewIndex - 1;
         } 
+        // Pfeil Rechts
         else if (Math.hypot(clickX - (cx + arrowDist), clickY - cy) < 40) {
             playClickSound();
             currentWeaponViewIndex = (currentWeaponViewIndex + 1 > 2) ? 0 : currentWeaponViewIndex + 1;
         } 
-        // Buttons
+        // Buttons Abfrage
         else if (clickX >= cx - btnW/2 && clickX <= cx + btnW/2) {
+            // Auswählen (Spiel Starten)
             if (clickY >= btnY && clickY <= btnY + btnH) {
                 playClickSound();
                 selectWeapon(classes[currentWeaponViewIndex]);
-                // Hier folgt ggf. gameState = 'PLAYING';
-            } else if (clickY >= backY && clickY <= backY + btnH) {
+            } 
+            // Zurück (Zur Charakterauswahl)
+            else if (clickY >= backY && clickY <= backY + btnH) {
                 playClickSound();
-                gameState = 'CHAR_SELECT'; // Zurück zur Charakterauswahl
+                gameState = 'CHAR_SELECT';
             }
         }
         return;
@@ -1738,10 +1845,29 @@ canvas.addEventListener('click', (e) => {
         return;
     }
 
+    // ===== PAUSE MENÜ =====
     if (gameState === 'PAUSED') {
         const bw = 260, bh = 50, cx = CANVAS_WIDTH / 2;
         const by1 = CANVAS_HEIGHT / 2 - 20, by2 = CANVAS_HEIGHT / 2 + 50, by3 = CANVAS_HEIGHT / 2 + 120;
 
+        // 8-TAP DETEKTION
+        if (clickX >= cx - 180 && clickX <= cx + 180 && clickY >= by1 - 140 && clickY <= by1 - 10) {
+            const now = Date.now();
+            if (now - lastTapTime < 500) {
+                tapCount++;
+            } else {
+                tapCount = 1;
+            }
+            lastTapTime = now;
+
+            if (tapCount >= 8) {
+                tapCount = 0;
+                toggleDevMenu(true);
+            }
+            return;
+        }
+
+        // Normale Klicks auf die Pause-Buttons:
         if (clickX >= cx - bw/2 && clickX <= cx + bw/2) {
             if (clickY >= by1 && clickY <= by1 + bh) { 
                 playClickSound(); gameState = 'PLAYING'; return; 
@@ -1749,8 +1875,11 @@ canvas.addEventListener('click', (e) => {
             if (clickY >= by2 && clickY <= by2 + bh) { 
                 playClickSound(); window.previousGameState = 'PAUSED'; gameState = 'OPTIONS'; return; 
             }
+            // ✅ FIX: Nutzt jetzt die saubere goBackToMenu() Hilfsfunktion!
             if (clickY >= by3 && clickY <= by3 + bh) { 
-                playClickSound(); gameState = 'MAIN_MENU'; resetGameState(); initMainMenuParticles(); return; 
+                playClickSound(); 
+                goBackToMenu(); 
+                return; 
             }
         }
         return;
@@ -1789,7 +1918,6 @@ canvas.addEventListener('click', (e) => {
         const backBtnX = 20, backBtnY = 20, backBtnW = 160, backBtnH = 52;
         if (clickX >= backBtnX && clickX <= backBtnX + backBtnW && clickY >= backBtnY && clickY <= backBtnY + backBtnH) {
             playClickSound();
-            // Geht exakt dorthin zurück, wo wir herkommen (Pause oder Main Menu)
             gameState = window.previousGameState || 'MAIN_MENU';
             if (gameState === 'MAIN_MENU') initMainMenuParticles();
             return;
@@ -1800,7 +1928,9 @@ canvas.addEventListener('click', (e) => {
     if (gameState === 'GAMEOVER') {
         const btnX = CANVAS_WIDTH / 2 - 120, btnY = CANVAS_HEIGHT / 2 + 110, btnW = 240, btnH = 52;
         if (clickX >= btnX && clickX <= btnX + btnW && clickY >= btnY && clickY <= btnY + btnH) {
-            playClickSound(); gameState = 'MAIN_MENU'; resetGameState(); initMainMenuParticles(); return;
+            playClickSound(); 
+            goBackToMenu(); 
+            return;
         }
         return;
     }
@@ -2069,7 +2199,7 @@ function spawnEnemy() {
 
 // ==== MINIBOSS SPAWNEN (ZAFER)=====
 function spawnMiniboss() {
-    if (gameState !== 'PLAYING') return;
+    if (gameState !== 'PLAYING' && gameState !== 'PAUSED') return;
     
     const size = 70; 
     const hp = 5000; 
@@ -2111,7 +2241,7 @@ function spawnMiniboss() {
 let sonerSpawned = false; // globale Variable oben im Script deklarieren
 
 function spawnSoner() {
-    if (gameState !== 'PLAYING') return;
+    if (gameState !== 'PLAYING' && gameState !== 'PAUSED') return;
     
     const size = 70; 
     const hp = 7000; // Etwas mehr HP als der erste Boss
@@ -2290,6 +2420,36 @@ function update() {
 
     // 3. PLAYING: Spiel-Logik
     if (gameState === 'PLAYING') {
+        // GODMODE: Leben dauerhaft auf Max halten
+        if (isGodMode && player) {
+            player.health = player.maxHealth || 100;
+        }
+
+        // =========================================================
+        // ✅ SAUBERE WARTESCHLANGE (Ohne doppeltes Level-Zählen!)
+        // =========================================================
+        if (typeof window.pendingLevelUps !== 'undefined' && window.pendingLevelUps > 0) {
+            window.pendingLevelUps--; // 1 vorgemerktest Level abarbeiten
+
+            if (typeof levelUpSelectedOption !== 'undefined') {
+                levelUpSelectedOption = -1;
+            }
+
+            // Hier wird NUR das Menü geöffnet. 
+            // `applyLevelUp()` erledigt das player.level++ beim Klick auf "Weiter"!
+            if (typeof triggerLevelUp === 'function') {
+                triggerLevelUp();
+            } else if (typeof generateLevelUpOptions === 'function') {
+                generateLevelUpOptions();
+                gameState = 'LEVEL_UP';
+            } else {
+                gameState = 'LEVEL_UP';
+            }
+
+            return; // Frame abbrechen, damit das Level-Up Menü gezeichnet wird
+        }
+        // =========================================================
+
         // NaN Sicherheits-Reset
         if (isNaN(player.x)) player.x = 100;
         if (isNaN(player.y)) player.y = 100;
@@ -2351,10 +2511,10 @@ function update() {
             if (b.isEnemyBullet) {
                 const distToPlayer = Math.sqrt((b.x - player.x) ** 2 + (b.y - player.y) ** 2);
                 if (distToPlayer < (player.size || 12) + b.size) {
-                    player.health -= b.damage;
+                    if (!isGodMode) player.health -= b.damage; // GODMODE CHECK
                     createExplosion(player.x, player.y, 10, '#ff0055', '#ff0000', 3);
                     bullets.splice(i, 1);
-                    if (player.health <= 0) {
+                    if (!isGodMode && player.health <= 0) {
                         player.health = 0;
                         saveHighscore(score);
                         showHighscorePopup();
@@ -2382,7 +2542,6 @@ function update() {
                     if (!e.state) e.state = 'WALKING';
                     if (!e.stateTimer) e.stateTimer = nowTime;
 
-                    // 1. WALKING: 3 Sekunden lang Verfolgung
                     if (e.state === 'WALKING') {
                         if (length > 0) {
                             e.x += (dx / length) * e.speed;
@@ -2397,38 +2556,31 @@ function update() {
                             e.targetY = player.y;
                         }
                     } 
-                    // 2. CHARGING: 0.7 Sekunde Stillstand & Ziel erfassen
                     else if (e.state === 'CHARGING') {
                         if (nowTime - e.stateTimer > 700) {
                             e.state = 'DASHING';
                             e.stateTimer = nowTime;
                         }
                     } 
-                    // 3. DASHING: Mit hoher Geschwindigkeit auf den Zielpunkt zuschiessen
                     else if (e.state === 'DASHING') {
                         const dashDx = e.targetX - e.x;
                         const dashDy = e.targetY - e.y;
                         const dashDist = Math.sqrt(dashDx * dashDx + dashDy * dashDy);
                         const dashSpeed = e.speed * 20;
 
-                        // Wenn der Zielpunkt im nächsten Frame erreicht wird:
                         if (dashDist <= dashSpeed || dashDist < 15) {
-                            // Exakt auf dem Zielpunkt landen
                             e.x = e.targetX;
                             e.y = e.targetY;
                             
-                            // Einschlag-Effekt (Partikel)
                             createExplosion(e.x, e.y, 25, '#ff2200', '#ffaa00', 5);
 
-                            // Flächenschaden am Einschlagpunkt
                             const distToPlayer = Math.sqrt((player.x - e.x)**2 + (player.y - e.y)**2);
                             if (distToPlayer < 90) {
-                                player.health -= 35;
+                                if (!isGodMode) player.health -= 35; // GODMODE CHECK
                                 screenDamageFlash = 0.6;
                                 createExplosion(player.x, player.y, 10, '#ff0000', '#880000', 3);
                             }
 
-                            // Wechsel zu BENOMMEN
                             e.state = 'STUNNED';
                             e.stateTimer = nowTime;
                         } else {
@@ -2436,7 +2588,6 @@ function update() {
                             e.y += (dashDy / dashDist) * dashSpeed;
                         }
                     }
-                    // 4. STUNNED: 1.5 Sekunden benommen pausieren
                     else if (e.state === 'STUNNED') {
                         if (nowTime - e.stateTimer > 1500) {
                             e.state = 'WALKING';
@@ -2478,7 +2629,7 @@ function update() {
 
                         if (distToPlayer < 350 && angleDiff < Math.PI / 6) {
                             if (nowTime - e.lastDamageTime > 100) {
-                                player.health -= 2.5;
+                                if (!isGodMode) player.health -= 2.5; // GODMODE CHECK
                                 e.lastDamageTime = nowTime;
                                 screenDamageFlash = 0.4;
                                 createExplosion(player.x, player.y, 5, '#ff4400', '#ff0000', 1);
@@ -2574,7 +2725,6 @@ function update() {
         for (let i = enemies.length - 1; i >= 0; i--) {
             const e = enemies[i];
 
-            // Soner macht während Dash & Benommenheit keinen regulären Kontaktschaden
             if (e.bossType === 'SONER' && (e.state === 'DASHING' || e.state === 'STUNNED')) {
                 continue;
             }
@@ -2591,7 +2741,7 @@ function update() {
                     damageToPlayer = 20;
                 }
 
-                player.health -= damageToPlayer;
+                if (!isGodMode) player.health -= damageToPlayer; // GODMODE CHECK
                 screenDamageFlash = 0.4;
                 const nowTime = Date.now();
                 if (nowTime - lastDamageSoundTime > 100) {
@@ -2608,7 +2758,7 @@ function update() {
                     enemies.splice(i, 1);
                 }
 
-                if (player.health <= 0) {
+                if (!isGodMode && player.health <= 0) { // GODMODE CHECK
                     player.health = 0;
                     saveHighscore(score);
                     showHighscorePopup();
@@ -2635,7 +2785,7 @@ function update() {
             }
 
             if (dist < collectRadius) {
-                player.xp += 10 * c.value * player.xpMultiplier;
+                player.xp += 10 * c.value * (player.xpMultiplier || 1);
                 try { playXpSound(); } catch (e) {}
                 for (let k = 0; k < 8; k++) {
                     const ang = Math.random() * Math.PI * 2;
@@ -3307,24 +3457,36 @@ function drawCharSelect() {
     const btnY = cy + cardHeight / 2 + 50;
     const backY = btnY + btnH + 15;
 
-    // 1. Auswählen-Button (Grün)
+    // 1. Auswählen-Button (Grün für Waffenspezialist, Grau für Gesperrt)
+    const isUnlocked = (currentCharViewIndex === 0);
     const isConfHover = (hoverCheck === 'char_confirm');
-    ctx.fillStyle = isConfHover ? 'rgba(0, 255, 204, 0.4)' : 'rgba(0, 200, 150, 0.3)';
-    ctx.strokeStyle = '#00cc99'; // Randfarbe
+
+    if (isUnlocked) {
+        // 🟩 Freigeschaltet: Grün & Interaktiv mit Hover-Effekt
+        ctx.fillStyle = isConfHover ? 'rgba(0, 255, 204, 0.4)' : 'rgba(0, 200, 150, 0.3)';
+        ctx.strokeStyle = '#00cc99';
+    } else {
+        // 🔒 Gesperrt: Ausgegraut
+        ctx.fillStyle = 'rgba(50, 50, 50, 0.4)';
+        ctx.strokeStyle = '#555555';
+    }
+
     roundRect(ctx, cx - btnW/2, btnY, btnW, btnH, 10);
-    ctx.fill(); ctx.stroke();
+    ctx.fill(); 
+    ctx.stroke();
     
-    // Text: Farbe angepasst an Rand
-    ctx.fillStyle = '#00cc99'; 
+    // Text: Farbe & Beschriftung dynamically angepasst
+    ctx.fillStyle = isUnlocked ? '#00cc99' : '#777777'; 
     ctx.font = 'bold 20px Arial';
-    ctx.fillText('Auswählen', cx, btnY + 33);
+    ctx.fillText(isUnlocked ? 'Auswählen' : 'GESPERRT', cx, btnY + 33);
 
     // 2. Zurück-Button (Rot)
     const isBackHover = (hoverCheck === 'char_back');
     ctx.fillStyle = isBackHover ? 'rgba(255, 100, 100, 0.4)' : 'rgba(200, 50, 50, 0.3)';
     ctx.strokeStyle = '#ff6666'; // Randfarbe
     roundRect(ctx, cx - btnW/2, backY, btnW, btnH, 10);
-    ctx.fill(); ctx.stroke();
+    ctx.fill(); 
+    ctx.stroke();
     
     // Text: Farbe angepasst an Rand
     ctx.fillStyle = '#ff6666';
@@ -4452,6 +4614,138 @@ function drawBossPointer() {
         ctx.restore();
     }
 }
+
+function initDevMenuEvents() {
+    // 1. Godmode Button
+    const godBtn = document.getElementById('godModeBtn');
+    if (godBtn) {
+        godBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            isGodMode = !isGodMode;
+            updateDevMenuUI();
+        });
+    }
+
+    // 2. Damage Multiplier Slider
+    const dmgSlider = document.getElementById('dmgMultSlider');
+    const dmgVal = document.getElementById('dmgMultVal');
+    if (dmgSlider) {
+        dmgSlider.addEventListener('input', (e) => {
+            const val = parseFloat(e.target.value);
+            if (player) player.damageMultiplier = val;
+            if (dmgVal) dmgVal.innerText = val + 'x';
+        });
+    }
+
+    // 3. XP Multiplier Slider
+    const xpSlider = document.getElementById('xpMultSlider');
+    const xpVal = document.getElementById('xpMultVal');
+    if (xpSlider) {
+        xpSlider.addEventListener('input', (e) => {
+            const val = parseFloat(e.target.value);
+            if (player) player.xpMultiplier = val;
+            if (xpVal) xpVal.innerText = val + 'x';
+        });
+    }
+
+    // 4. +1 Level Button (Fügt ein Level zur Warteschlange hinzu)
+    const addXpBtn = document.getElementById('addXpBtn');
+    if (addXpBtn) {
+        addXpBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+
+            if (typeof window.pendingLevelUps === 'undefined') {
+                window.pendingLevelUps = 0;
+            }
+            
+            window.pendingLevelUps++; // Warteschlange um 1 erhöhen
+
+            console.log(`[DevMenu] +1 Level vorgemerkt! Noch offene Level-Ups: ${window.pendingLevelUps}`);
+        });
+    }
+
+    // 5. Kill All Enemies Button (GEFIXT: Leert das Gegner-Array komplett)
+    const killAllBtn = document.getElementById('killAllBtn');
+    if (killAllBtn) {
+        killAllBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (typeof enemies !== 'undefined' && Array.isArray(enemies)) {
+                // Leert das Array in-place, damit alle Gegner sofort verschwinden
+                enemies.length = 0; 
+                console.log("[DevMenu] Alle Gegner gelöscht!");
+            }
+        });
+    }
+
+    // 6. Boss Spawns (Zafer & Soner)
+    const spawnZaferBtn = document.getElementById('spawnZaferBtn');
+    if (spawnZaferBtn) {
+        spawnZaferBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (typeof spawnMiniboss === 'function') {
+                spawnMiniboss();
+            }
+        });
+    }
+
+    const spawnSonerBtn = document.getElementById('spawnSonerBtn');
+    if (spawnSonerBtn) {
+        spawnSonerBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (typeof spawnSoner === 'function') {
+                spawnSoner();
+            }
+        });
+    }
+
+    // 7. Dev Menü Schließen Buttons
+    const closeDevBtn = document.getElementById('closeDevMenuBtn');
+    if (closeDevBtn) {
+        closeDevBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            toggleDevMenu(false);
+        });
+    }
+
+    const closeDevBtnBottom = document.getElementById('closeDevMenuBtnBottom');
+    if (closeDevBtnBottom) {
+        closeDevBtnBottom.addEventListener('click', (e) => {
+            e.stopPropagation();
+            toggleDevMenu(false);
+        });
+    }
+}
+
+// Globale Hilfsfunktion zum kompletten Zurücksetzen des Spiels
+function returnToMainMenu() {
+    // 1. Zustand auf Main Menu
+    gameState = 'MAIN_MENU';
+
+    // 2. Alle Altlasten aus dem Spielfeld löschen
+    if (typeof bullets !== 'undefined') bullets = [];
+    if (typeof enemies !== 'undefined') enemies = [];
+    if (typeof particles !== 'undefined') particles = [];
+    if (typeof xpCrystals !== 'undefined') xpCrystals = [];
+    if (typeof chests !== 'undefined') chests = [];
+
+    // 3. Spielzeit & Boss-Flags zurücksetzen
+    if (typeof gameTime !== 'undefined') gameTime = 0;
+    if (typeof score !== 'undefined') score = 0;
+    if (typeof minibossSpawned !== 'undefined') minibossSpawned = false;
+    if (typeof sonerSpawned !== 'undefined') sonerSpawned = false;
+
+    // 4. Klick- & Tasteneingaben komplett leeren (verhindert Geisterklicks im Menü)
+    if (typeof keys !== 'undefined') {
+        for (let key in keys) keys[key] = false;
+    }
+    if (typeof touchJoystickActive !== 'undefined') touchJoystickActive = false;
+}
+
+// Initialisiere die Events, sobald die DOM-Elemente bereitstehen
+window.addEventListener('DOMContentLoaded', () => {
+    initDevMenuEvents();
+});
+
 // ===== HIGHSCORE POPUP LOGIK =====
 function showHighscorePopup() {
     // 1. Werte in das Popup schreiben
@@ -4470,6 +4764,12 @@ function showHighscorePopup() {
 document.addEventListener('DOMContentLoaded', () => {
     const closeBtn = document.getElementById('closeLeaderboardBtn');
     if (closeBtn) {
+        // 🎧 NEU: Hover-Sound beim Drüberfahren
+        closeBtn.addEventListener('mouseenter', () => {
+            if (typeof playHoverSound === 'function') playHoverSound();
+        });
+
+        // Klick-Logik (wie gehabt)
         closeBtn.addEventListener('click', () => {
             if (typeof playClickSound === 'function') playClickSound();
             document.getElementById('leaderboardOverlay').style.display = 'none';

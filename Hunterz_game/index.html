@@ -107,13 +107,12 @@
             border-radius: 16px;
             width: 92%;
             max-width: 950px;
-            height: 85vh;     /* Nutzt 85% der Höhe */
+            height: 85vh;
             max-height: 85vh;
             z-index: 1000;
             box-sizing: border-box;
         }
 
-        /* Wenn sichtbar -> IMMER als Flexbox anzeigen! */
         #leaderboardOverlay[style*="display: block"],
         #leaderboardOverlay[style*="display: flex"] {
             display: flex !important;
@@ -130,18 +129,16 @@
             flex-shrink: 0;
         }
 
-        /* Dehnt die Tabelle JETZT VOLLSTÄNDIG aus */
         .table-responsive {
-            flex: 1; /* Nimmt JEDEN verfügbaren Pixel bis zum Button ein! */
+            flex: 1;
             overflow-y: auto;
             overflow-x: auto;
             margin-bottom: 15px;
             padding-right: 5px;
-            border: 1px solid rgba(0, 255, 204, 0.15); /* Subtiler Rand um die Tabelle */
+            border: 1px solid rgba(0, 255, 204, 0.15);
             border-radius: 8px;
         }
 
-        /* Dünne Neon-Scrollbars */
         .table-responsive::-webkit-scrollbar {
             width: 6px;
             height: 6px;
@@ -166,7 +163,7 @@
         .leaderboard-table th {
             position: sticky;
             top: 0;
-            background: #0d1127; /* Tabellenkopf bleibt beim Scrollen fest oben */
+            background: #0d1127;
             color: #00ffcc;
             border-bottom: 2px solid rgba(0, 255, 204, 0.4);
             padding: 10px 8px;
@@ -184,9 +181,8 @@
         .leaderboard-table tr:nth-child(2) td { color: #c0c0c0; }
         .leaderboard-table tr:nth-child(3) td { color: #cd7f32; }
 
-        /* Zurück Button fest unten verankert */
         #closeLeaderboardBtn {
-            flex-shrink: 0; /* Button wird nie gequetscht */
+            flex-shrink: 0;
             padding: 12px 35px;
             font-size: 16px;
             font-weight: bold;
@@ -205,6 +201,170 @@
             background: #00ffcc;
             color: #0a0a1a;
             box-shadow: 0 0 20px #00ffcc;
+        }
+
+        /* ===== DEV / CHEAT MENU OVERLAY (VERTIKAL & MOBILE-FRIENDLY) ===== */
+        #devMenuOverlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background-color: rgba(0, 0, 0, 0.75);
+            backdrop-filter: blur(4px);
+            z-index: 99999;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 15px;
+            box-sizing: border-box;
+        }
+
+        .dev-modal {
+            background: rgba(18, 12, 28, 0.95);
+            border: 2px solid #ff0055;
+            box-shadow: 0 0 25px rgba(255, 0, 85, 0.4);
+            border-radius: 14px;
+            width: 100%;
+            max-width: 420px;
+            max-height: 90vh;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            padding: 16px;
+            color: #ffffff;
+            font-family: Arial, sans-serif;
+        }
+
+        .dev-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid rgba(255, 0, 85, 0.3);
+            padding-bottom: 10px;
+            margin-bottom: 15px;
+        }
+
+        .dev-header h3 {
+            margin: 0;
+            color: #ff0055;
+            font-size: 1.1rem;
+            letter-spacing: 1px;
+        }
+
+        .dev-close-x {
+            background: none;
+            border: none;
+            color: #ff0055;
+            font-size: 28px;
+            cursor: pointer;
+            line-height: 1;
+            padding: 0 5px;
+        }
+
+        .dev-section {
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 12px;
+        }
+
+        .dev-section-title {
+            font-size: 0.85rem;
+            font-weight: bold;
+            color: #00ffcc;
+            letter-spacing: 1px;
+            margin-bottom: 10px;
+        }
+
+        .dev-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        .dev-control-group {
+            margin-bottom: 14px;
+        }
+
+        .dev-label-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.9rem;
+            margin-bottom: 6px;
+        }
+
+        /* Lange, dicke Schieberegler für einfache Touch-Bedienung */
+        .dev-slider {
+            width: 100%;
+            height: 14px;
+            border-radius: 7px;
+            background: #333;
+            outline: none;
+            accent-color: #00ffcc;
+            cursor: pointer;
+        }
+
+        .dev-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+
+        .dev-btn {
+            background: #1e152a;
+            border: 1px solid #00ffcc;
+            color: #00ffcc;
+            padding: 10px;
+            border-radius: 6px;
+            font-weight: bold;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .dev-btn:active {
+            transform: scale(0.96);
+        }
+
+        .toggle-btn {
+            min-width: 70px;
+            border-color: #ff0055;
+            color: white;
+        }
+
+        .danger-btn {
+            border-color: #ff0055;
+            color: #ff0055;
+        }
+
+        .close-full-btn {
+            width: 100%;
+            background: #ff0055;
+            color: white;
+            border: none;
+            padding: 12px;
+            margin-top: 5px;
+            font-size: 0.95rem;
+        }
+        /* Styling für Dev-Menu Buttons */
+        .dev-menu-btn {
+            cursor: pointer;
+            transition: all 0.2s ease-in-out;
+        }
+
+        .dev-menu-btn:hover {
+            background-color: #444 !important; /* Etwas heller bei Hover */
+            transform: scale(1.03); /* Leichtes Vergrößern */
+            border-color: #00ffcc !important; /* Cyan-Leuchten beim Hover */
+            box-shadow: 0 0 10px rgba(0, 255, 204, 0.4);
+        }
+
+        .dev-menu-btn:active {
+            transform: scale(0.97); /* Klick-Feedback */
         }
 
         /* Medienabfrage für Mobile */
@@ -273,6 +433,61 @@
         </div>
         <!-- Zurück-Button -->
         <button id="closeLeaderboardBtn">Zurück</button>
+    </div>
+
+    <!-- DEV / CHEAT MENU OVERLAY (Vertikal & Responsive für Mobile) -->
+    <div id="devMenuOverlay" class="dev-overlay" style="display: none;">
+        <div class="dev-modal">
+            <!-- Header mit Schließen-X -->
+            <div class="dev-header">
+                <h3>🔧 DEV / CHEAT MENU</h3>
+                <button id="closeDevMenuBtn" class="dev-close-x">&times;</button>
+            </div>
+
+            <div class="dev-body">
+                <!-- Bereich 1: Player Stats & Multiplier -->
+                <div class="dev-section">
+                    <div class="dev-section-title">PLAYER STATS</div>
+                    
+                    <div class="dev-row">
+                        <span>Godmode:</span>
+                        <button id="godModeBtn" class="dev-btn toggle-btn">OFF</button>
+                    </div>
+
+                    <div class="dev-control-group">
+                        <div class="dev-label-row">
+                            <span>Damage Multiplier:</span>
+                            <strong id="dmgMultVal">1x</strong>
+                        </div>
+                        <input type="range" id="dmgMultSlider" min="1" max="10" step="0.5" value="1" class="dev-slider">
+                    </div>
+
+                    <div class="dev-control-group">
+                        <div class="dev-label-row">
+                            <span>XP Multiplier:</span>
+                            <strong id="xpMultVal">1x</strong>
+                        </div>
+                        <input type="range" id="xpMultSlider" min="1" max="10" step="0.5" value="1" class="dev-slider">
+                    </div>
+                </div>
+
+                <!-- Bereich 2: Schnellausführungen -->
+                <div class="dev-section">
+                    <div class="dev-section-title">ACTIONS</div>
+                    <div class="dev-grid">
+                        <button id="addXpBtn" class="dev-btn">+1 LVL</button>
+                        <button id="killAllBtn" class="dev-btn danger-btn">Kill All</button>
+                        <button id="spawnZaferBtn" class="dev-btn">Boss Zafer</button>
+                        <button id="spawnSonerBtn" class="dev-btn">Boss Soner</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Footer Schließen-Button -->
+            <div class="dev-footer">
+                <button id="closeDevMenuBtnBottom" class="dev-btn close-full-btn">Dev Menü Schließen</button>
+            </div>
+        </div>
     </div>
 
     <script src="game.js"></script>
