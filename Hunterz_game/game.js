@@ -8,6 +8,8 @@ let scoreSubmitted = false;
 let CANVAS_WIDTH = window.innerWidth;
 let CANVAS_HEIGHT = window.innerHeight;
 
+let minScoreForTop100 = 0; // Mindestscore für Top 100
+
 function resizeCanvas() {
     CANVAS_WIDTH = window.innerWidth;
     CANVAS_HEIGHT = window.innerHeight;
@@ -32,6 +34,9 @@ let isMobile = false;
 
 // ===== SPIEL-ZUSTÄNDE =====
 let gameState = 'MAIN_MENU'; // 'MAIN_MENU' | 'OPTIONS' | 'CHAR_SELECT' | 'WEAPON_SELECT' | 'PLAYING' | 'PAUSED' | 'LEVEL_UP' | 'GAMEOVER'
+
+//===== CHEAT-STATUS =====
+let cheatsUsedThisRun = false;
 
 // ===== DEV MENU STATE =====
 let devMenuOpen = false;
@@ -342,6 +347,16 @@ function fetchTopHighscores(callback) {
             querySnapshot.forEach((doc) => {
                 scores.push(doc.data());
             });
+
+            // 🎯 NEU: Platz 100 als Qualifikations-Grenze berechnen
+            if (scores.length >= 100) {
+                // Der letzte Score in der Top 100 Liste ist die Messlatte
+                minScoreForTop100 = scores[scores.length - 1].score || 0;
+            } else {
+                // Falls noch keine 100 Einträge existieren, schlägt jeder Score die Hürde
+                minScoreForTop100 = 0;
+            }
+
             if (typeof callback === "function") {
                 callback(scores);
             }
@@ -1161,7 +1176,7 @@ function handleTouchStart(e) {
             const tx = touch.clientX - rect.left;
             const ty = touch.clientY - rect.top;
             const btnX = CANVAS_WIDTH / 2 - 120;
-            const btnY = CANVAS_HEIGHT / 2 + 110;
+            const btnY = CANVAS_HEIGHT / 2 + 135;
             const btnW = 240;
             const btnH = 52;
             if (tx >= btnX && tx <= btnX + btnW && ty >= btnY && ty <= btnY + btnH) {
@@ -1638,14 +1653,25 @@ canvas.addEventListener('mousemove', (e) => {
         if (mouseX >= backBtnX && mouseX <= backBtnX + backBtnW && mouseY >= backBtnY && mouseY <= backBtnY + backBtnH) {
             currentHover = 'leaderboard_back';
         }
-    }
+    } else if (gameState === 'GAMEOVER') {
+        const btnX = CANVAS_WIDTH / 2 - 120;
+        const btnY = CANVAS_HEIGHT / 2 + 135;
+        const btnW = 240;
+        const btnH = 50;
 
-    // Spielt den Ton ab, sobald die Maus neu über ein Element fährt
-    if (currentHover !== lastHoveredElement && currentHover !== null) {
-        if (typeof playHoverSound === 'function') playHoverSound();
+        // Prüfen, ob die Maus über dem Button steht
+        if (mouseX >= btnX && mouseX <= btnX + btnW && mouseY >= btnY && mouseY <= btnY + btnH) {
+            currentHover = 'gameover_menu'; // 👈 Wir setzen einfach nur currentHover!
+        }
     }
-    lastHoveredElement = currentHover;
-});
+        
+
+        // Spielt den Ton ab, sobald die Maus neu über ein Element fährt
+        if (currentHover !== lastHoveredElement && currentHover !== null) {
+            if (typeof playHoverSound === 'function') playHoverSound();
+        }
+        lastHoveredElement = currentHover;
+    });
 
 canvas.addEventListener('mousedown', (e) => {
     if (e.button !== 0) return; // Nur die linke Maustaste beachten
@@ -1926,13 +1952,20 @@ canvas.addEventListener('click', (e) => {
     }
 
     if (gameState === 'GAMEOVER') {
-        const btnX = CANVAS_WIDTH / 2 - 120, btnY = CANVAS_HEIGHT / 2 + 110, btnW = 240, btnH = 52;
-        if (clickX >= btnX && clickX <= btnX + btnW && clickY >= btnY && clickY <= btnY + btnH) {
-            playClickSound(); 
-            goBackToMenu(); 
-            return;
+        const btnX = CANVAS_WIDTH / 2 - 120;
+        const btnY = CANVAS_HEIGHT / 2 + 135;
+        const btnW = 240;
+        const btnH = 50;
+
+        if (mouseX >= btnX && mouseX <= btnX + btnW && mouseY >= btnY && mouseY <= btnY + btnH) {
+            if (typeof playClickSound === 'function') {
+                playClickSound(); // Klick-Sound
+            }
+            
+            // Zurück ins Hauptmenü schalten
+            gameState = 'MAIN_MENU'; 
+            lastHoveredElement = null;
         }
-        return;
     }
 
     if (gameState === 'PLAYING') {
@@ -2041,6 +2074,7 @@ function fireBullet(dirX, dirY) {
 function startGame(klasse) {
     // 1. WICHTIG: erst Karte generieren bevor wir in PLAYING übergehen
     initLevelGeneration();
+    cheatsUsedThisRun = false;
 
     selectedClass = klasse;
     gameState = 'PLAYING';
@@ -2361,6 +2395,12 @@ function getHighscore() {
 }
 
 function saveHighscore(newScore) {
+    // 🔒 Wenn gecheatet wurde, speichern wir gar nichts ab!
+    if (cheatsUsedThisRun) {
+        console.log("[Anti-Cheat] Highscore wird nicht lokal gespeichert.");
+        return;
+    }
+
     const currentHighscore = getHighscore();
     if (newScore > currentHighscore) {
         localStorage.setItem('myGameHighscore', newScore);
@@ -2516,8 +2556,12 @@ function update() {
                     bullets.splice(i, 1);
                     if (!isGodMode && player.health <= 0) {
                         player.health = 0;
-                        saveHighscore(score);
-                        showHighscorePopup();
+                        saveHighscore(score); // (Ist durch unsere Anti-Cheat-Sperre in saveHighscore bereits geschützt)
+                        
+                        if (!cheatsUsedThisRun) {
+                            showHighscorePopup(); // Öffnet das Fenster NUR, wenn ehrlicher Run
+                        }
+
                         gameState = 'GAMEOVER';
                         if (spawnTimerId) clearInterval(spawnTimerId);
                     }
@@ -2758,10 +2802,14 @@ function update() {
                     enemies.splice(i, 1);
                 }
 
-                if (!isGodMode && player.health <= 0) { // GODMODE CHECK
+                if (!isGodMode && player.health <= 0) {
                     player.health = 0;
-                    saveHighscore(score);
-                    showHighscorePopup();
+                    saveHighscore(score); // (Ist durch unsere Anti-Cheat-Sperre in saveHighscore bereits geschützt)
+                    
+                    if (!cheatsUsedThisRun) {
+                        showHighscorePopup(); // Öffnet das Fenster NUR, wenn ehrlicher Run
+                    }
+
                     gameState = 'GAMEOVER';
                     if (spawnTimerId) clearInterval(spawnTimerId);
                 }
@@ -4171,52 +4219,90 @@ function drawOptionsMenu() {
 // ===== GAME OVER =====
 function drawGameOver() {
     drawGrid();
+    
+    // 1. Prüfen, ob das HTML-Highscore-Popup aktuell offen ist
+    const overlay = document.getElementById('highscoreOverlay');
+    const isPopupOpen = overlay && (overlay.style.display === 'block' || overlay.style.display === 'flex');
+
+    // Dunkler Hintergrund für den Game-Over-Screen
     ctx.fillStyle = 'rgba(0, 0, 0, 0.75)';
     ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
+    // 🔒 WICHTIG: Wenn das HTML-Popup offen ist, stoppen wir HIER!
+    if (isPopupOpen) {
+        return; 
+    }
+
+    // 2. AB HIER WIRD NUR GEZEICHNET, WENN KEIN POPUP OFFEN IST
     ctx.textAlign = 'center';
+    const hoverCheck = typeof lastHoveredElement !== 'undefined' ? lastHoveredElement : null;
+    
+    // Titel
     ctx.fillStyle = '#ff0000';
     ctx.font = 'bold 60px Arial';
     ctx.shadowBlur = 20;
     ctx.shadowColor = '#ff0000';
-    ctx.fillText('GAME OVER', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 50);
+    ctx.fillText('GAME OVER', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 70);
     ctx.shadowBlur = 0;
 
-    // --- NEUER REKORD LOGIK ---
-    if (score >= getHighscore() && score > 0) {
+    // --- NEUER REKORD LOGIK (Nur wenn ehrlicher Run) ---
+    if (!cheatsUsedThisRun && score >= getHighscore() && score > 0) {
         ctx.fillStyle = '#ffff00'; // Gelb für den Rekord
-        ctx.font = 'bold 30px Arial';
+        ctx.font = 'bold 28px Arial';
         ctx.shadowBlur = 10;
         ctx.shadowColor = '#ffff00';
-        ctx.fillText('NEUER REKORD!', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 10);
+        ctx.fillText('NEUER REKORD!', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 25);
         ctx.shadowBlur = 0;
     }
-    // --------------------------
 
+    // Zeit formatieren (Minuten:Sekunden)
+    const timeSecs = typeof gameTime !== 'undefined' ? gameTime : 0;
+    const mins = Math.floor(timeSecs / 60);
+    const secs = Math.floor(timeSecs % 60).toString().padStart(2, '0');
+    const formattedTime = `${mins}:${secs}`;
+
+    // Stats
     ctx.fillStyle = '#ffffff';
-    ctx.font = '24px Arial';
-    ctx.fillText('Score: ' + score, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 30); // Etwas weiter nach unten geschoben
-    ctx.fillText('Highscore: ' + getHighscore(), CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 60); 
-    ctx.fillText('Level: ' + player.level, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 95);
+    ctx.font = '22px Arial';
+    ctx.fillText('Score: ' + score, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 15);
+    ctx.fillText('Level: ' + (player ? player.level : 1), CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 45);
+    ctx.fillText('Zeit: ' + formattedTime, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 75);
 
+    // ⚠️ CHEAT WARNUNG
+    if (cheatsUsedThisRun) {
+        ctx.fillStyle = '#ff4444';
+        ctx.font = 'bold 16px Arial';
+        ctx.fillText('⚠️ Cheats genutzt – Score wird nicht gewertet!', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 105);
+    }
+
+    // --- HAUPTMENÜ BUTTON ---
     const btnX = CANVAS_WIDTH / 2 - 120;
-    const btnY = CANVAS_HEIGHT / 2 + 110;
+    const btnY = CANVAS_HEIGHT / 2 + 135; // Exakt abgestimmt auf die neuen Zeilen
     const btnW = 240;
-    const btnH = 52;
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
+    const btnH = 50;
+    const isBtnHover = (hoverCheck === 'gameover_menu');
+
+    // Hintergrundfarbe (hellt bei Hover auf)
+    ctx.fillStyle = isBtnHover ? 'rgba(0, 255, 204, 0.25)' : 'rgba(255, 255, 255, 0.1)';
     roundRect(ctx, btnX, btnY, btnW, btnH, 12);
     ctx.fill();
-    ctx.strokeStyle = '#ffffff';
+
+    // Rahmeneffekt bei Hover
+    ctx.strokeStyle = isBtnHover ? '#00ffcc' : '#ffffff';
     ctx.lineWidth = 2;
     ctx.stroke();
-    ctx.fillStyle = '#ffffff';
+
+    // Textfarbe bei Hover
+    ctx.fillStyle = isBtnHover ? '#00ffcc' : '#ffffff';
     ctx.font = '20px Arial';
     ctx.fillText('Zurück zum Hauptmenü', CANVAS_WIDTH / 2, btnY + btnH / 2 + 7);
 
     ctx.textAlign = 'left';
-    // Ganz am Ende der Funktion fügen wir das hinzu:
-    const overlay = document.getElementById('highscoreOverlay');
-    if (overlay && overlay.style.display !== 'block' && !scoreSubmitted && score > 0) {
+
+    // 🔒 Leaderboard-Overlay NUR öffnen, wenn NICHT gecheatet wurde UND Score gut genug für Top 100 ist!
+    const isTop100Qualifying = score > minScoreForTop100 || minScoreForTop100 === 0;
+
+    if (!cheatsUsedThisRun && isTop100Qualifying && overlay && overlay.style.display !== 'block' && !scoreSubmitted && score > 0) {
         overlay.style.display = 'block';
     }
 }
@@ -4622,6 +4708,7 @@ function initDevMenuEvents() {
         godBtn.addEventListener('click', (e) => {
             e.stopPropagation();
             isGodMode = !isGodMode;
+            cheatsUsedThisRun = true; // 🔒 CHEAT VERWENDET
             updateDevMenuUI();
         });
     }
@@ -4634,6 +4721,7 @@ function initDevMenuEvents() {
             const val = parseFloat(e.target.value);
             if (player) player.damageMultiplier = val;
             if (dmgVal) dmgVal.innerText = val + 'x';
+            cheatsUsedThisRun = true; // 🔒 CHEAT VERWENDET
         });
     }
 
@@ -4645,33 +4733,32 @@ function initDevMenuEvents() {
             const val = parseFloat(e.target.value);
             if (player) player.xpMultiplier = val;
             if (xpVal) xpVal.innerText = val + 'x';
+            cheatsUsedThisRun = true; // 🔒 CHEAT VERWENDET
         });
     }
 
-    // 4. +1 Level Button (Fügt ein Level zur Warteschlange hinzu)
+    // 4. +1 Level Button
     const addXpBtn = document.getElementById('addXpBtn');
     if (addXpBtn) {
         addXpBtn.addEventListener('click', (e) => {
             e.stopPropagation();
-
             if (typeof window.pendingLevelUps === 'undefined') {
                 window.pendingLevelUps = 0;
             }
-            
-            window.pendingLevelUps++; // Warteschlange um 1 erhöhen
-
-            console.log(`[DevMenu] +1 Level vorgemerkt! Noch offene Level-Ups: ${window.pendingLevelUps}`);
+            window.pendingLevelUps++;
+            cheatsUsedThisRun = true; // 🔒 CHEAT VERWENDET
+            console.log(`[DevMenu] +1 Level vorgemerkt!`);
         });
     }
 
-    // 5. Kill All Enemies Button (GEFIXT: Leert das Gegner-Array komplett)
+    // 5. Kill All Enemies Button
     const killAllBtn = document.getElementById('killAllBtn');
     if (killAllBtn) {
         killAllBtn.addEventListener('click', (e) => {
             e.stopPropagation();
             if (typeof enemies !== 'undefined' && Array.isArray(enemies)) {
-                // Leert das Array in-place, damit alle Gegner sofort verschwinden
                 enemies.length = 0; 
+                cheatsUsedThisRun = true; // 🔒 CHEAT VERWENDET
                 console.log("[DevMenu] Alle Gegner gelöscht!");
             }
         });
@@ -4684,6 +4771,7 @@ function initDevMenuEvents() {
             e.stopPropagation();
             if (typeof spawnMiniboss === 'function') {
                 spawnMiniboss();
+                cheatsUsedThisRun = true; // 🔒 CHEAT VERWENDET
             }
         });
     }
@@ -4694,11 +4782,12 @@ function initDevMenuEvents() {
             e.stopPropagation();
             if (typeof spawnSoner === 'function') {
                 spawnSoner();
+                cheatsUsedThisRun = true; // 🔒 CHEAT VERWENDET
             }
         });
     }
 
-    // 7. Dev Menü Schließen Buttons
+    // 7. Dev Menü Schließen Buttons (Hier KEIN Cheat-Flag, nur Fenster zu)
     const closeDevBtn = document.getElementById('closeDevMenuBtn');
     if (closeDevBtn) {
         closeDevBtn.addEventListener('click', (e) => {
@@ -4748,18 +4837,35 @@ window.addEventListener('DOMContentLoaded', () => {
 
 // ===== HIGHSCORE POPUP LOGIK =====
 function showHighscorePopup() {
-    // 1. Werte in das Popup schreiben
+    // 1. 🔒 Anti-Cheat Check
+    if (cheatsUsedThisRun) {
+        console.log("[Anti-Cheat] Highscore-Popup wird blockiert.");
+        return;
+    }
+
+    // 2. 🏆 Score Check: Muss mehr als 0 Punkte haben UND gut genug für Top 100 sein!
+    const isTop100Qualifying = score > minScoreForTop100 || minScoreForTop100 === 0;
+    if (score <= 0 || !isTop100Qualifying) {
+        console.log("[Highscore] Score ist 0 oder reicht nicht für die Top 100.");
+        return; // ⛔ Bricht ab, Popup bleibt ZU!
+    }
+
+    // 3. Werte in das Popup schreiben
     document.getElementById('valScore').innerText = score;
-    document.getElementById('valLevel').innerText = player.level;
+    document.getElementById('valLevel').innerText = player ? player.level : 1;
     
     // Zeit formatieren
     const mins = Math.floor(gameTime / 60);
     const secs = Math.floor(gameTime % 60).toString().padStart(2, '0');
     document.getElementById('valTime').innerText = `${mins}:${secs}`;
     
-    // 2. Popup anzeigen
-    document.getElementById('highscoreOverlay').style.display = 'block';
+    // 4. Popup anzeigen
+    const overlay = document.getElementById('highscoreOverlay');
+    if (overlay) {
+        overlay.style.display = 'block';
+    }
 }
+
 // Leaderboard HTML Zurück-Button Logik
 document.addEventListener('DOMContentLoaded', () => {
     const closeBtn = document.getElementById('closeLeaderboardBtn');
