@@ -93,5 +93,7 @@
     "game_values.Maschinengewehr": "Maschinengewehr",
     "game_values.Scharfschützengewehr": "Scharfschützengewehr",
     "game_values.Schrotflinte": "Schrotflinte",
-    "game_values.Geheim": "Geheim"
+    "game_values.Geheim": "Geheim",
+    "contact-intro-title": "Schreib mir eine Nachricht!",
+    "contact-intro-desc": "Egal ob du Fragen zu meinen Projekten hast, mir Feedback hinterlassen möchtest oder an einer Zusammenarbeit interessiert bist – nutze einfach das Kontaktformular. Ich melde mich so schnell wie möglich bei dir!"
 }

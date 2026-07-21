@@ -2520,10 +2520,10 @@ function update() {
         gridOffsetX = cameraX;
         gridOffsetY = cameraY;
 
-        if (!minibossSpawned && gameTime >= 120) {
+        if (!minibossSpawned && gameTime >= 60) {
             spawnMiniboss();
         }
-        if (!sonerSpawned && gameTime >= 30) { 
+        if (!sonerSpawned && gameTime >= 150) { 
             spawnSoner();
         }
 

@@ -89,35 +89,57 @@
         </div> <!-- Schließt container -->
     </nav>
 
-    <!-- Hauptinhalt (Impressum-Inhalte unverändert) -->
+    <!-- Hauptinhalt -->
     <main class="container py-5">
         <div class="row justify-content-center">
-            <div class="text-center mb-5">
-        <h1 class="display-4 fw-bold text-white d-flex align-items-center justify-content-center gap-3">
-            <i class="bi bi-shield-shaded text-accent"></i>
-            <span data-i18n="impressum-title">Impressum</span>
-        </h1>
-    </div>
+            <div class="col-lg-8">
                 
-                <h3 data-i18n="impressum-contact">Kontakt</h3> <!-- Weiß -->
-                <p class="text-accent"> <!-- Accent -->
-                    <strong>Zafer C.M.</strong><br>
-                    Private Straße 123<br>
-                    91074 Herzogenaurach<br>
-                    Deutschland<br>
-                    E-Mail: zaferhaci34@gmail.com
-                </p>
+                <!-- Haupttitel -->
+                <div class="text-center mb-5">
+                    <h1 class="display-4 fw-bold text-white d-flex align-items-center justify-content-center gap-3">
+                        <i class="bi bi-shield-shaded text-accent"></i>
+                        <span data-i18n="impressum-title">Impressum</span>
+                    </h1>
+                </div>
+                
+                <!-- Box 1: Kontakt -->
+                <div class="hover-card p-4 rounded-3 mb-4" style="background: rgba(255, 255, 255, 0.05);">
+                    <div class="d-flex align-items-center gap-2 mb-3">
+                        <i class="bi bi-person-vcard text-accent fs-4"></i>
+                        <h3 class="text-accent h5 m-0 fw-bold" data-i18n="impressum-contact">Kontakt</h3>
+                    </div>
+                    <p class="text-white m-0" style="line-height: 1.6;">
+                        <strong>Zafer C.M.</strong><br>
+                        Private Straße 123<br>
+                        91074 Herzogenaurach<br>
+                        Deutschland<br>
+                        E-Mail: zaferhaci34@gmail.com
+                    </p>
+                </div>
 
-                <h3 class="mt-4" data-i18n="disclaimer-title">Haftungsausschluss</h3> <!-- Weiß -->
-                <p class="text-accent" data-i18n="disclaimer-text">
-                    Trotz sorgfältiger inhaltlicher Kontrolle übernehmen wir keine Haftung für die Inhalte externer Links. Für den Inhalt der verlinkten Seiten sind ausschließlich deren Betreiber verantwortlich.
-                </p>
+                <!-- Box 2: Haftungsausschluss -->
+                <div class="hover-card p-4 rounded-3 mb-4" style="background: rgba(255, 255, 255, 0.05);">
+                    <div class="d-flex align-items-center gap-2 mb-3">
+                        <i class="bi bi-exclamation-triangle text-accent fs-4"></i>
+                        <h3 class="text-accent h5 m-0 fw-bold" data-i18n="disclaimer-title">Haftungsausschluss</h3>
+                    </div>
+                    <p class="text-white m-0" style="line-height: 1.6;" data-i18n="disclaimer-text">
+                        Trotz sorgfältiger inhaltlicher Kontrolle übernehmen wir keine Haftung für die Inhalte externer Links. Für den Inhalt der verlinkten Seiten sind ausschließlich deren Betreiber verantwortlich.
+                    </p>
+                </div>
 
-                <h3 class="mt-4" data-i18n="copyright-title">Urheberrecht</h3>
-                <p class="text-accent" data-i18n="copyright-text">
-                    Alle Inhalte, Grafiken und Code-Fragmente auf dieser Website unterliegen dem Urheberrecht. Eine Vervielfältigung oder Verwendung ist ohne ausdrückliche Zustimmung nicht gestattet.
-                </p>
+                <!-- Box 3: Urheberrecht -->
+                <div class="hover-card p-4 rounded-3 mb-4" style="background: rgba(255, 255, 255, 0.05);">
+                    <div class="d-flex align-items-center gap-2 mb-3">
+                        <i class="bi bi-c-circle text-accent fs-4"></i>
+                        <h3 class="text-accent h5 m-0 fw-bold" data-i18n="copyright-title">Urheberrecht</h3>
+                    </div>
+                    <p class="text-white m-0" style="line-height: 1.6;" data-i18n="copyright-text">
+                        Alle Inhalte, Grafiken und Code-Fragmente auf dieser Website unterliegen dem Urheberrecht. Eine Vervielfältigung oder Verwendung ist ohne ausdrückliche Zustimmung nicht gestattet.
+                    </p>
+                </div>
 
+                <!-- Social Links -->
                 <div class="text-center mt-5 mb-5">
                     <p class="socials-title mb-3" data-i18n="social-title">Folge mir auf meinen Kanälen:</p>
                     <div class="d-flex justify-content-center gap-4">
@@ -127,6 +149,7 @@
                         <a href="https://instagram.com/zafer_haci/" class="social-link" target="_blank"><i class="bi bi-instagram"></i></a>
                     </div>
                 </div>
+
             </div>
         </div>
     </main>
@@ -138,6 +161,8 @@
             <p data-i18n="footer-text">&copy; 2026 devz.solutions | Built with Passion.</p>
         </div>
     </footer>
+    <!-- Partikel-Effekt für den Hintergrund -->
+    <script src="particles.js"></script>
     <script src="translate.js"></script>
 </body>
 </html>

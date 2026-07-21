@@ -93,5 +93,7 @@
     "game_values.Maschinengewehr": "Makineli Tüfek",
     "game_values.Scharfschützengewehr": "Keskin Nişancı",
     "game_values.Schrotflinte": "Pompalı Tüfek",
-    "game_values.Geheim": "Gizli"
+    "game_values.Geheim": "Gizli",
+    "contact-intro-title": "Bana bir mesaj gönderin!",
+    "contact-intro-desc": "Projelerim hakkında sorularınız varsa, geri bildirimde bulunmak istiyorsanız veya iş birliğiyle ilgileniyorsanız iletişim formunu kullanabilirsiniz. En kısa sürede size geri döneceğim!"
 }
